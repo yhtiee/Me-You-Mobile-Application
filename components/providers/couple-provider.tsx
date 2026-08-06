@@ -1,0 +1,186 @@
+import { createContext, use, useState, type ReactNode } from 'react';
+
+import * as seed from '@/mocks/couple';
+import type {
+  BucketListItem,
+  CalendarEvent,
+  CheckinState,
+  CoachMessage,
+  Goal,
+  GrowthHabit,
+  MoodKey,
+  NeedKey,
+  Todo,
+  WikiEntry,
+} from '@/types/domain';
+
+/**
+ * The single source of truth for the UI layer.
+ *
+ * This is the seam. Every screen reads through the hooks in `hooks/`, which
+ * read this context. When the API lands, the hook bodies become queries and
+ * mutations and this provider goes away — no screen file changes.
+ */
+
+const FREE_COACH_QUESTIONS_PER_DAY = 3;
+
+export type CoupleStore = {
+  // people
+  you: typeof seed.you;
+  partner: typeof seed.partner;
+  togetherSince: string;
+  coupleCode: string;
+
+  // check-in
+  yourCheckin: CheckinState;
+  partnerCheckin: CheckinState;
+  setMood: (mood: MoodKey) => void;
+  setBattery: (battery: number) => void;
+  setNeed: (need: NeedKey) => void;
+  saveCheckin: () => void;
+
+  // streak + progression
+  streak: number;
+  level: number;
+  checkedOnThem: boolean;
+  toggleCheckedOnThem: () => void;
+
+  // lists
+  todos: Todo[];
+  toggleTodo: (id: string) => void;
+  addTodo: (label: string) => void;
+
+  goals: Goal[];
+  addGoal: (goal: Omit<Goal, 'id'>) => void;
+  toggleGoal: (id: string) => void;
+
+  bucketList: BucketListItem[];
+  toggleBucketItem: (id: string) => void;
+
+  wiki: WikiEntry[];
+  updateWikiEntry: (id: string, value: string) => void;
+
+  calendar: CalendarEvent[];
+  addEvent: (event: Omit<CalendarEvent, 'id'>) => void;
+
+  growthHabits: GrowthHabit[];
+  rateHabit: (id: string, rating: number) => void;
+
+  // coach
+  coachThread: CoachMessage[];
+  coachQuestionsUsed: number;
+  coachQuestionsAllowed: number;
+  askCoach: (text: string) => 'ok' | 'limit-reached';
+
+  // monetisation
+  isPremium: boolean;
+  upgrade: () => void;
+
+  // pairing
+  isPaired: boolean;
+  pair: () => void;
+  unpair: () => void;
+};
+
+const CoupleContext = createContext<CoupleStore | null>(null);
+
+let nextId = 0;
+const makeId = (prefix: string) => `${prefix}${Date.now()}-${nextId++}`;
+
+export function CoupleProvider({ children }: { children: ReactNode }) {
+  const [yourCheckin, setYourCheckin] = useState<CheckinState>(seed.yourCheckin);
+  const [partnerCheckin] = useState<CheckinState>(seed.partnerCheckin);
+  const [streak, setStreak] = useState(seed.initialStreak);
+  const [level] = useState(seed.initialLevel);
+  const [checkedOnThem, setCheckedOnThem] = useState(false);
+  const [todos, setTodos] = useState<Todo[]>(seed.todos);
+  const [goals, setGoals] = useState<Goal[]>(seed.goals);
+  const [bucketList, setBucketList] = useState<BucketListItem[]>(seed.bucketList);
+  const [wiki, setWiki] = useState<WikiEntry[]>(seed.wiki);
+  const [calendar, setCalendar] = useState<CalendarEvent[]>(seed.calendar);
+  const [growthHabits, setGrowthHabits] = useState<GrowthHabit[]>(seed.growthHabits);
+  const [coachThread, setCoachThread] = useState<CoachMessage[]>(seed.coachThread);
+  const [coachQuestionsUsed, setCoachQuestionsUsed] = useState(0);
+  const [isPremium, setIsPremium] = useState(false);
+  const [isPaired, setIsPaired] = useState(false);
+
+  const store: CoupleStore = {
+    you: seed.you,
+    partner: seed.partner,
+    togetherSince: seed.togetherSince,
+    coupleCode: seed.coupleCode,
+
+    yourCheckin,
+    partnerCheckin,
+    setMood: (mood) => setYourCheckin((c) => ({ ...c, mood })),
+    setBattery: (battery) => setYourCheckin((c) => ({ ...c, battery })),
+    setNeed: (need) => setYourCheckin((c) => ({ ...c, need })),
+    saveCheckin: () =>
+      setYourCheckin((c) => {
+        if (!c.savedToday) setStreak((s) => s + 1);
+        return { ...c, savedToday: true };
+      }),
+
+    streak,
+    level,
+    checkedOnThem,
+    toggleCheckedOnThem: () => setCheckedOnThem((v) => !v),
+
+    todos,
+    toggleTodo: (id) =>
+      setTodos((list) => list.map((t) => (t.id === id ? { ...t, done: !t.done } : t))),
+    addTodo: (label) => setTodos((list) => [...list, { id: makeId('t'), label, done: false }]),
+
+    goals,
+    addGoal: (goal) => setGoals((list) => [...list, { ...goal, id: makeId('g') }]),
+    toggleGoal: (id) =>
+      setGoals((list) => list.map((g) => (g.id === id ? { ...g, done: !g.done } : g))),
+
+    bucketList,
+    toggleBucketItem: (id) =>
+      setBucketList((list) => list.map((b) => (b.id === id ? { ...b, done: !b.done } : b))),
+
+    wiki,
+    updateWikiEntry: (id, value) =>
+      setWiki((list) => list.map((w) => (w.id === id ? { ...w, value } : w))),
+
+    calendar,
+    addEvent: (event) => setCalendar((list) => [...list, { ...event, id: makeId('c') }]),
+
+    growthHabits,
+    rateHabit: (id, rating) =>
+      setGrowthHabits((list) => list.map((h) => (h.id === id ? { ...h, rating } : h))),
+
+    coachThread,
+    coachQuestionsUsed,
+    coachQuestionsAllowed: isPremium ? Infinity : FREE_COACH_QUESTIONS_PER_DAY,
+    askCoach: (text) => {
+      if (!isPremium && coachQuestionsUsed >= FREE_COACH_QUESTIONS_PER_DAY) {
+        return 'limit-reached';
+      }
+      const reply = seed.coachReplies[coachQuestionsUsed % seed.coachReplies.length];
+      setCoachThread((thread) => [
+        ...thread,
+        { id: makeId('m'), from: 'you', text },
+        { id: makeId('m'), from: 'coach', text: reply },
+      ]);
+      setCoachQuestionsUsed((n) => n + 1);
+      return 'ok';
+    },
+
+    isPremium,
+    upgrade: () => setIsPremium(true),
+
+    isPaired,
+    pair: () => setIsPaired(true),
+    unpair: () => setIsPaired(false),
+  };
+
+  return <CoupleContext value={store}>{children}</CoupleContext>;
+}
+
+export function useCouple(): CoupleStore {
+  const store = use(CoupleContext);
+  if (!store) throw new Error('useCouple must be used inside <CoupleProvider>');
+  return store;
+}

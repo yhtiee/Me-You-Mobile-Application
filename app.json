@@ -1,25 +1,29 @@
 {
   "expo": {
-    "name": "meyou-mobile-app",
-    "slug": "meyou-mobile-app",
+    "name": "Me&u",
+    "slug": "meyou",
+    "owner": "me-and-you-mobile-application",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "meyoumobileapp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "meyou",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.meyou.app"
     },
     "android": {
+      "package": "com.meyou.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFE6EA",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "output": "static",
@@ -31,11 +35,11 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#FBF8FA",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#161119"
           }
         }
       ]
@@ -43,6 +47,18 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "01269f66-ee3b-4b71-a662-d58e9398ae7c"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/01269f66-ee3b-4b71-a662-d58e9398ae7c"
     }
   }
 }
