@@ -3,7 +3,7 @@ import { Pressable, View, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
-import { useTheme } from '@/components/providers/theme-provider';
+import { useTheme, type Theme } from '@/components/providers/theme-provider';
 import { layout, motion, palette, radius, shadow, space } from '@/constants/tokens';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -45,7 +45,7 @@ export function Button({
 
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  const spec = variantSpec(variant, theme.color.surface);
+  const spec = variantSpec(variant, theme);
   const isChip = variant === 'chip';
 
   return (
@@ -95,13 +95,19 @@ export function Button({
   );
 }
 
-function variantSpec(variant: ButtonVariant, surface: string) {
+/**
+ * Rose, iris and white are fixed — a brand button is the same colour in both
+ * schemes, and white on either brand fill clears contrast in the dark as well
+ * as the light. Everything else has to come from the theme, which is what the
+ * old `#F7F4F8` neutral fill and `palette.light.*` foregrounds prevented.
+ */
+function variantSpec(variant: ButtonVariant, theme: Theme) {
   switch (variant) {
     case 'primary':
       return { bg: palette.brand.rose, fg: '#fff', shadow: shadow.brand, borderColor: undefined };
     case 'secondary':
       return {
-        bg: surface,
+        bg: theme.color.surface,
         fg: palette.brand.rose,
         shadow: undefined,
         borderColor: palette.brand.rose,
@@ -109,13 +115,18 @@ function variantSpec(variant: ButtonVariant, surface: string) {
     case 'premium':
       return { bg: palette.brand.iris, fg: '#fff', shadow: shadow.iris, borderColor: undefined };
     case 'neutral':
-      return { bg: '#F7F4F8', fg: palette.light.textSecondary, shadow: undefined, borderColor: undefined };
+      return {
+        bg: theme.color.surfaceSunken,
+        fg: theme.color.textSecondary,
+        shadow: undefined,
+        borderColor: undefined,
+      };
     case 'destructive':
-      return { bg: palette.light.danger, fg: '#fff', shadow: undefined, borderColor: undefined };
+      return { bg: theme.color.danger, fg: '#fff', shadow: undefined, borderColor: undefined };
     case 'chip':
       return {
-        bg: palette.brand.roseSoft,
-        fg: palette.brand.rosePressed,
+        bg: theme.tint.rose.bg,
+        fg: theme.tint.rose.fg,
         shadow: undefined,
         borderColor: undefined,
       };

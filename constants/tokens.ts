@@ -54,10 +54,54 @@ export const palette = {
 } as const;
 
 /**
+ * Soft-tinted surfaces and the text that goes on them.
+ *
+ * These existed as hardcoded hexes scattered through the screens — `#3F3161`
+ * on an iris card, `#B97400` on an amber one — which is exactly what made the
+ * app light-only. A tint is a *pair* (a fill and the ink that stays legible on
+ * it), and both halves have to change together with the scheme.
+ *
+ * Every light `fg` and `muted` clears 4.5:1 on its own `bg`. Two of the old
+ * hardcoded values did not: `#B97400` on `amberSoft` is 3.4:1, so `muted`
+ * there is darkened to `#8F5A00` (5.2:1). Do not put the old value back to
+ * "match the streak badge" — fix the badge instead.
+ */
+export const tints = {
+  light: {
+    rose: { bg: '#FFE6EA', fg: '#A82F46', muted: '#8A5560' },
+    iris: { bg: '#EEEAFB', fg: '#3F3161', muted: '#6B5C8E' },
+    amber: { bg: '#FFF1D6', fg: '#7A4E00', muted: '#8F5A00' },
+    success: { bg: '#E6F1EA', fg: '#2C6146', muted: '#4A7A62' },
+    neutral: { bg: '#F4EFF4', fg: '#221A2B', muted: '#7B7286' },
+  },
+  dark: {
+    // Dark tints are the same hue at low lightness, never the light value
+    // dimmed: `#FFE6EA` at 20% opacity over a dark ground goes grey, and the
+    // person→colour mapping the whole app runs on stops being readable.
+    rose: { bg: '#3B1B24', fg: '#FFC2CE', muted: '#D3A3AD' },
+    iris: { bg: '#241D3B', fg: '#CFC4FF', muted: '#A79BD6' },
+    amber: { bg: '#38270A', fg: '#FFD79A', muted: '#D9B173' },
+    success: { bg: '#16301F', fg: '#9BD9B5', muted: '#7FB899' },
+    neutral: { bg: '#1B1521', fg: '#F6F1F7', muted: '#B4AAB9' },
+  },
+} as const;
+
+/**
  * Gradients are CSS strings for `experimental_backgroundImage` (New Arch only,
  * which this app enables). Deliberately NOT expo-linear-gradient.
  */
 export const gradients = {
+  /**
+   * The couple banner — the two person colours blended into one surface, which
+   * is the whole idea the card exists to express.
+   *
+   * It starts at `rosePressed`, not `rose`. White text has to clear 4.5:1 and
+   * `rose` only reaches 3.35:1, which would fail the 10px "TOGETHER" overline
+   * sitting right where the gradient is reddest. `rosePressed` lands at 4.52:1
+   * and `iris` at 5.30:1, so every label on this surface is legible at both
+   * ends. Do not "brighten" the first stop back to `rose`.
+   */
+  duo: 'linear-gradient(135deg,#D63C58,#6E5AC8)',
   wash: 'linear-gradient(180deg,#FCEFF3,#FBF8FA 34%)',
   washDark: 'linear-gradient(180deg,#241A2A,#161119 34%)',
   coin: 'linear-gradient(135deg,#F5A524,#F0546F)',
@@ -122,6 +166,15 @@ export const toastColors = {
   foreground: '#FFFFFF',
 } as const;
 
+/**
+ * Height of the rose wash at the top of every screen.
+ *
+ * Shared by `Screen` and `ScreenHeader` on purpose: the header paints the same
+ * gradient over the same 320px so its background lines up pixel-for-pixel with
+ * the screen scrolling underneath it. Change it in one place or the seam shows.
+ */
+export const washHeight = 320;
+
 export const space = {
   xs: 4,
   sm: 8,
@@ -156,6 +209,13 @@ export const shadow = {
   s2: '0 4px 18px rgba(34,26,43,0.06)',
   brand: '0 12px 28px rgba(240,84,111,0.30)',
   iris: '0 12px 28px rgba(110,90,200,0.28)',
+  /**
+   * Under the gradient hero only. Plum rather than rose or iris because the
+   * card is both of those at once and either one alone pulls the glow toward
+   * that end; softer than `brand` because this sits under a full-width surface,
+   * where a button's alpha reads as a bruise.
+   */
+  hero: '0 14px 30px rgba(116,52,120,0.22)',
 } as const;
 
 export const motion = {
@@ -190,6 +250,8 @@ export const icon = {
   sm: 18,
   md: 24,
   lg: 28,
+  /** Standalone icons carrying a tap target on their own — the quick actions. */
+  xl: 32,
   stroke: 2,
 } as const;
 
@@ -198,6 +260,10 @@ export const layout = {
   android: { minTarget: 48 },
   /** Built to the larger of the two everywhere, per the spec. */
   minTarget: 48,
+  /** App header bar, *excluding* the status-bar inset it is padded down by. */
+  headerBar: 56,
+  /** Circular header affordance — back chevron, bell. Spec: 36px circle. */
+  headerCircle: 36,
 } as const;
 
 /**

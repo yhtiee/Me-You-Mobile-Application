@@ -1,20 +1,25 @@
 import { Stack } from 'expo-router/stack';
 
-import { rootScreenOptions, stackScreenOptions } from '@/constants/nav-options';
+import { renderHomeHeader } from '@/components/ui/screen-header';
+import { stackScreenOptions } from '@/constants/nav-options';
 
 export default function HomeStack() {
   return (
     <Stack screenOptions={stackScreenOptions}>
-      <Stack.Screen name="index" options={{ ...rootScreenOptions, title: 'Me&u' }} />
+      {/* The one screen with the avatar-and-greeting header. Everything below
+          it takes the shared back / title / bell bar. */}
+      <Stack.Screen name="index" options={{ header: renderHomeHeader }} />
 
       {/* The old Home segments, promoted to screens of their own. */}
       <Stack.Screen name="us" options={{ title: 'Us' }} />
       <Stack.Screen name="play" options={{ title: 'Play' }} />
       <Stack.Screen name="todos" options={{ title: 'Just for you' }} />
 
+      <Stack.Screen name="gallery" options={{ title: 'Your gallery' }} />
       <Stack.Screen name="wiki" options={{ title: 'Partner wiki' }} />
       <Stack.Screen name="add-goal" options={{ title: 'New goal' }} />
       <Stack.Screen name="bucket-list" options={{ title: 'Bucket list' }} />
+      <Stack.Screen name="love-languages" options={{ title: 'Love languages' }} />
       <Stack.Screen name="tools/coin" options={{ title: 'Bigger person' }} />
       <Stack.Screen name="tools/wheel" options={{ title: 'Whose turn' }} />
       <Stack.Screen name="tools/date" options={{ title: 'Date setter' }} />

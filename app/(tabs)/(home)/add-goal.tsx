@@ -7,10 +7,16 @@ import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
-import { useCouple } from '@/components/providers/couple-provider';
+import { useAuth } from '@/components/providers/auth-provider';
 import { useTheme } from '@/components/providers/theme-provider';
-import { palette, space } from '@/constants/tokens';
+import { useToast } from '@/components/providers/toast-provider';
+import { createGoal } from '@/lib/us';
+import { palette, radius, space } from '@/constants/tokens';
 
+/**
+ * Starting points, not saved data. These are copy — a blank form is the hardest
+ * thing to fill in, and every one of them is straight from the PRD's examples.
+ */
 const PRESETS = [
   { label: 'Go on 4 dates this month', target: 4, unit: 'dates' },
   { label: 'Save ₦50,000 / $100 together', target: 50000, unit: '₦' },
@@ -20,12 +26,40 @@ const PRESETS = [
 
 export default function AddGoal() {
   const theme = useTheme();
-  const { addGoal } = useCouple();
+  const toast = useToast();
+  const { user, coupleId } = useAuth();
+
   const [label, setLabel] = useState('');
   const [target, setTarget] = useState('');
   const [unit, setUnit] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const valid = label.trim().length > 0 && Number(target) > 0;
+
+  const submit = async () => {
+    if (!user || !coupleId) {
+      toast.error('Your session ended. Log in again to continue.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await createGoal({
+        coupleId,
+        userId: user.id,
+        label: label.trim(),
+        target: Number(target),
+        unit: unit.trim() || null,
+      });
+      // Us refetches on focus, so the new goal is on the list behind this one
+      // by the time the pop animation finishes.
+      router.back();
+    } catch (thrown) {
+      toast.error(thrown instanceof Error ? thrown.message : 'Couldn’t add that goal.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Screen gap={space.xl}>
@@ -47,12 +81,13 @@ export default function AddGoal() {
                 setTarget(String(preset.target));
                 setUnit(preset.unit);
               }}
-              style={{
+              style={({ pressed }) => ({
                 paddingHorizontal: space.lg - 2,
                 paddingVertical: space.sm + 1,
-                borderRadius: 999,
+                borderRadius: radius.pill,
                 backgroundColor: palette.brand.roseSoft,
-              }}
+                opacity: pressed ? 0.6 : 1,
+              })}
             >
               <Text role="caption" color={palette.brand.rosePressed}>
                 {preset.label}
@@ -63,7 +98,12 @@ export default function AddGoal() {
       </View>
 
       <Card style={{ gap: space.lg }}>
-        <TextField label="Goal" placeholder="What are you going for?" value={label} onChangeText={setLabel} />
+        <TextField
+          label="Goal"
+          placeholder="What are you going for?"
+          value={label}
+          onChangeText={setLabel}
+        />
         <View style={{ flexDirection: 'row', gap: space.md }}>
           <View style={{ flex: 2 }}>
             <TextField
@@ -81,19 +121,10 @@ export default function AddGoal() {
       </Card>
 
       <Button
-        label="Add goal"
+        label={saving ? 'Adding…' : 'Add goal'}
         full
-        disabled={!valid}
-        onPress={() => {
-          addGoal({
-            label: label.trim(),
-            current: 0,
-            target: Number(target),
-            unit: unit.trim() || 'done',
-            done: false,
-          });
-          router.back();
-        }}
+        disabled={!valid || saving}
+        onPress={() => void submit()}
       />
     </Screen>
   );

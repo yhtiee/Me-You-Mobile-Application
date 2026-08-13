@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import { useCoach } from '@/hooks/use-coach';
 import { useChromeInsets } from '@/hooks/use-chrome-insets';
 import { useTheme } from '@/components/providers/theme-provider';
-import { fontFamily, gutter, layout, palette, radius, space } from '@/constants/tokens';
+import { fontFamily, gutter, layout, palette, radius, space, washHeight } from '@/constants/tokens';
 
 /**
  * AI Relationship Coach (PRD §5). Replies are canned until the LLM lands;
@@ -35,7 +35,21 @@ export default function Coach() {
     <View style={{ flex: 1, backgroundColor: theme.color.bgBase }}>
       <View
         pointerEvents="none"
-        style={{ position: 'absolute', inset: 0, experimental_backgroundImage: theme.wash }}
+        /*
+         * Same top band as `Screen`, not a full-bleed fill. Coach rolls its own
+         * scroll view, so it also has to match by hand: `ScreenHeader` paints
+         * this identical gradient over the identical 320px to sit seamlessly on
+         * top of it. Stretched over the whole screen the tone at the header's y
+         * is lighter, and the bar draws a visible band across it.
+         */
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: washHeight,
+          experimental_backgroundImage: theme.wash,
+        }}
       />
 
       <ScrollView
@@ -57,14 +71,14 @@ export default function Coach() {
               style={{
                 alignSelf: mine ? 'flex-end' : 'flex-start',
                 maxWidth: '86%',
-                backgroundColor: mine ? palette.brand.rose : palette.brand.irisSoft,
+                backgroundColor: mine ? palette.brand.rose : theme.tint.iris.bg,
                 borderRadius: radius.lg,
                 borderCurve: 'continuous',
                 paddingHorizontal: space.lg,
                 paddingVertical: space.md,
               }}
             >
-              <Text role="body" selectable color={mine ? '#fff' : '#3F3161'}>
+              <Text role="body" selectable color={mine ? '#fff' : theme.tint.iris.fg}>
                 {message.text}
               </Text>
             </Animated.View>

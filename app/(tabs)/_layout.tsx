@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Icon, Label, NativeTabs, VectorIcon } from 'expo-router/unstable-native-tabs';
 
 import { TabBarInsetProvider } from '@/components/ui/tab-bar-inset';
+import { useTheme } from '@/components/providers/theme-provider';
 import { fontFamily, tabColors } from '@/constants/tokens';
 
 /**
@@ -18,6 +19,8 @@ import { fontFamily, tabColors } from '@/constants/tokens';
  *   `useChromeInsets` is what keeps anything from being stranded there.
  */
 export default function TabLayout() {
+  const theme = useTheme();
+
   return (
     <TabBarInsetProvider>
       <NativeTabs
@@ -27,9 +30,11 @@ export default function TabLayout() {
         minimizeBehavior="onScrollDown"
         // Frosted chrome. `blurEffect` is the iOS half; `backgroundColor` is a
         // translucent tint layered over it there and the whole effect on
-        // Android, where Material 3's bottom nav has no blur to give.
-        blurEffect="systemChromeMaterialLight"
-        backgroundColor={tabColors.glass}
+        // Android, where Material 3's bottom nav has no blur to give. Both come
+        // from the theme — a light-tinted glass over a dark app reads as a
+        // white bar somebody forgot to style.
+        blurEffect={theme.tabBlur}
+        backgroundColor={theme.tabGlass}
         shadowColor={tabColors.glassHairline}
         rippleColor={tabColors.ripple}
         // Without this the scroll-edge appearance is forced to fully

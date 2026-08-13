@@ -256,10 +256,11 @@ Four things differed from the plan. Three were plan errors, one was a rule I bro
 
 Two smaller calls, both flagged inline in the code:
 
-- **Back affordance** uses the native header button rather than the spec's chevron-in-a-36px-circle.
-  Documented in [constants/nav-options.ts](constants/nav-options.ts) — it buys swipe-back, Android
-  hardware back and Dynamic Type for free. Easy to swap to a `headerLeft` render prop if you want
-  the circle.
+- ~~**Back affordance** uses the native header button rather than the spec's
+  chevron-in-a-36px-circle.~~ **Resolved.** The native bar is gone; every stack now renders
+  [components/ui/screen-header.tsx](components/ui/screen-header.tsx), which restores the spec's
+  36px circle. Turning the native header off costs none of what it bought — swipe-back and the
+  Android hardware/gesture back are properties of the stack, not the bar.
 - **Battery input** is a 6-stop button row, not a drag slider. Avoids a dependency and stays usable
   with assistive tech and large font scales. In [app/checkin.tsx](app/checkin.tsx).
 

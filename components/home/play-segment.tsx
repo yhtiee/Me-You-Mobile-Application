@@ -5,7 +5,7 @@ import { AdSlot } from '@/components/ui/ad-slot';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/components/providers/theme-provider';
-import { cardGap, palette, radius, space } from '@/constants/tokens';
+import { cardGap, radius, space } from '@/constants/tokens';
 import type { Href } from 'expo-router';
 
 /**
@@ -14,39 +14,42 @@ import type { Href } from 'expo-router';
  * The redesign nests these under Home rather than giving Tools its own tab —
  * following the mock, noted in the implementation plan.
  */
-const TOOLS: { href: Href; glyph: string; tint: string; title: string; body: string }[] = [
+type TintKey = 'rose' | 'iris' | 'amber' | 'success';
+
+/** Tint keys, resolved from the theme at render so these follow dark mode. */
+const TOOLS: { href: Href; glyph: string; tint: TintKey; title: string; body: string }[] = [
   {
     href: '/tools/coin',
     glyph: '🪙',
-    tint: palette.brand.amberSoft,
+    tint: 'amber',
     title: 'Bigger person',
     body: 'Flip for who apologises, or who buys the coffee.',
   },
   {
     href: '/tools/wheel',
     glyph: '🎡',
-    tint: palette.brand.roseSoft,
+    tint: 'rose',
     title: 'Whose turn',
     body: 'Spin for chores neither of you wants.',
   },
   {
     href: '/tools/date',
     glyph: '📅',
-    tint: palette.brand.irisSoft,
+    tint: 'iris',
     title: 'Date setter',
     body: 'Plan it, or let the app decide. Raincheck without guilt.',
   },
   {
     href: '/tools/picker',
     glyph: '🍿',
-    tint: '#E6F1EA',
+    tint: 'success',
     title: 'Movie & meal',
     body: 'Swipe separately. You’ll only hear about the matches.',
   },
   {
     href: '/tools/games',
     glyph: '🎯',
-    tint: '#FDECE6',
+    tint: 'rose',
     title: 'Games & growth',
     body: 'Trivia about each other, plus habits worth building.',
   },
@@ -76,7 +79,7 @@ export function PlaySegment() {
                   height: 52,
                   borderRadius: radius.md,
                   borderCurve: 'continuous',
-                  backgroundColor: tool.tint,
+                  backgroundColor: theme.tint[tool.tint].bg,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}

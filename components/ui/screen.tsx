@@ -2,7 +2,7 @@ import { createContext, use, useCallback, useRef } from 'react';
 import { ScrollView, View, type ScrollViewProps } from 'react-native';
 
 import { useTheme } from '@/components/providers/theme-provider';
-import { gutter, space } from '@/constants/tokens';
+import { gutter, space, washHeight } from '@/constants/tokens';
 import { useChromeInsets } from '@/hooks/use-chrome-insets';
 import { useKeyboardInset } from '@/hooks/use-keyboard-inset';
 
@@ -70,7 +70,7 @@ export function Screen({
           top: 0,
           left: 0,
           right: 0,
-          height: 320,
+          height: washHeight,
           experimental_backgroundImage: theme.wash,
         }}
       />

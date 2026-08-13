@@ -1,14 +1,26 @@
 import { Stack } from 'expo-router/stack';
 
+import { renderHeaderWithoutBell } from '@/components/ui/screen-header';
 import { stackScreenOptions } from '@/constants/nav-options';
 
 export const unstable_settings = {
   anchor: 'index',
 };
 
+/**
+ * Back and title only: there is nothing to notify a user about before they have
+ * an account, and the bell's screen sits behind the auth gate — hence the
+ * bell-less header override on top of the shared options.
+ */
 export default function OnboardingStack() {
   return (
-    <Stack screenOptions={{ ...stackScreenOptions, headerShown: false }}>
+    <Stack
+      screenOptions={{
+        ...stackScreenOptions,
+        headerShown: false,
+        header: renderHeaderWithoutBell,
+      }}
+    >
       {/* `index` is the brand intro; it `replace`s into the walkthrough, so
           there is deliberately nothing to go back to. */}
       <Stack.Screen name="index" />

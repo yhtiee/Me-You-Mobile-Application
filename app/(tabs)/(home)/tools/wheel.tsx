@@ -102,7 +102,7 @@ export default function WheelTool() {
             borderTopWidth: 16,
             borderLeftColor: 'transparent',
             borderRightColor: 'transparent',
-            borderTopColor: palette.light.textPrimary,
+            borderTopColor: theme.color.textPrimary,
             zIndex: 1,
           }}
         />

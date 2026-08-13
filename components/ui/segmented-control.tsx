@@ -48,7 +48,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
           >
             <Text
               role="bodyStrong"
-              color={active ? palette.brand.rose : '#8A8092'}
+              color={active ? palette.brand.rose : theme.color.textSecondary}
               style={{ fontFamily: 'Manrope_700Bold' }}
             >
               {option.label}

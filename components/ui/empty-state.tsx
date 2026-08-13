@@ -1,6 +1,7 @@
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { useTheme } from '@/components/providers/theme-provider';
 import { palette, radius, space } from '@/constants/tokens';
 
 type Props = {
@@ -14,6 +15,8 @@ type Props = {
  * illustration-heavy blocker, per the design system.
  */
 export function EmptyState({ label, onPress }: Props) {
+  const theme = useTheme();
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -25,7 +28,7 @@ export function EmptyState({ label, onPress }: Props) {
         style={{
           borderWidth: 1,
           borderStyle: 'dashed',
-          borderColor: '#E0D3DC',
+          borderColor: theme.color.border,
           borderRadius: radius.md,
           borderCurve: 'continuous',
           paddingVertical: space.xl,

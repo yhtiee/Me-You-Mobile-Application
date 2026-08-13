@@ -2,7 +2,7 @@ import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/components/providers/theme-provider';
-import { layout, palette, space } from '@/constants/tokens';
+import { layout, space } from '@/constants/tokens';
 
 type Props = {
   label: string;
@@ -61,7 +61,7 @@ export function ListRow({
       ) : null}
       {right}
       {onPress && !right ? (
-        <Text role="body" color={palette.light.textTertiary}>
+        <Text role="body" color={theme.color.textTertiary}>
           ›
         </Text>
       ) : null}

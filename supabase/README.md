@@ -18,6 +18,8 @@ one before it has run.
 | `0006_tools.sql` | Picker + swipes + `picker_matches()`, trivia, date ideas, tool log |
 | `0007_rls.sql` | Enables RLS on every table and defines all policies |
 | `0008_seed.sql` | Levels, stock picker items, date ideas, trivia. Idempotent |
+| `0009_realtime.sql` | Publishes the shared tables to `supabase_realtime`. Idempotent |
+| `0010_profile.sql` | Profile phone + social columns, and the avatar storage bucket. Idempotent |
 
 `0008` is safe to re-run. `0001`–`0007` are not — they use bare `create table`,
 so re-running raises "already exists" rather than silently doing something
@@ -179,9 +181,15 @@ make it look decided. It stays computed in the app until you confirm it.
    partner subscribes, both get it. That seems right for a shared app but it is
    a pricing decision, not a technical one, and it changes what you can charge.
 
-5. **No storage bucket yet.** `profiles.avatar_url` and the couple banner photo
-   both need one, plus its own policies. Separate migration once you decide
-   public-read vs signed URLs.
+5. ~~**No storage bucket yet.**~~ **Settled for avatars, in `0010`.** The bucket
+   is public-read, owner-write, keyed `<user_id>/avatar`: a profile photo is
+   shown to the one person allowed to see it anyway, and signed URLs would mean
+   re-signing on every render of the home banner and every list row. The bucket
+   name is `me&u` and appears in exactly two places — the top of `0010` and
+   `EXPO_PUBLIC_SUPABASE_AVATAR_BUCKET`, which `lib/profile.ts` falls back to
+   the same literal for. Still open for the **couple banner photo**, which is a
+   shared object and therefore a different policy: `<couple_id>/…` written by
+   either member.
 
 6. **Ads and receipts.** No tables for AdMob or store receipts. `is_premium` is
    currently something you would flip by hand; real billing needs a
@@ -207,17 +215,67 @@ make it look decided. It stays computed in the app until you confirm it.
    repository next to the Edge Function so it is reviewable, and bump the
    version when it changes.
 
-## Not done yet
+## What the client actually uses
 
-The client is not wired up. `.env` already has `EXPO_PUBLIC_SUPABASE_URL` and
-`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, but `@supabase/supabase-js` is not
-installed and there is no client module — that is the API layer, which you said
-comes after this review.
+The seam held: screens read through `hooks/`, so migrating one means rewriting a
+hook, not a screen tree.
 
-When it does: the seam is already there. Every screen reads through `hooks/`,
-which read `components/providers/couple-provider.tsx`. The hook bodies become
-queries and mutations and the provider goes away, without a screen file
-changing.
+| Wired to Postgres | Still reading `mocks/couple.ts` |
+|---|---|
+| Auth and pairing (`lib/pairing.ts`, `components/providers/auth-provider.tsx`) | Play and the tools |
+| Home (`lib/home.ts` → `hooks/use-home.ts`) | Coach |
+| Check-in and the need follow-up (`app/checkin.tsx`, `app/need.tsx`) | Calendar |
+| Streak and level (`hooks/use-streak.ts`) | Premium / upgrade (`hooks/use-premium.ts`) |
+| Us — goals, bucket list, wiki, love languages (`lib/us.ts`) | The level ladder itself, which is static reference data |
+| Private reminders (`lib/todos.ts` → `hooks/use-todos.ts`) | |
+
+### Realtime
+
+Both partners are looking at the same rows on two devices, so a write on one
+has to reach the other without a reload. `0009_realtime.sql` publishes the
+shared tables; `components/providers/realtime-provider.tsx` opens **one** channel
+per couple and hands screens a way to name the tables they care about.
+
+A change is treated as a **signal, not as data** — the subscribing hook re-runs
+its own query rather than merging the payload. That is one extra round trip per
+change, and it avoids three problems: `fetchHomeSnapshot` joins profiles and
+filters on today's date, so a row-level payload cannot be folded into its result
+without reimplementing the query on the client; a DELETE carries only the
+primary key unless the table is `REPLICA IDENTITY FULL`; and a patched cache is
+a second copy of the truth that has to stay right forever.
+
+The focus refetch stays as the backstop. A socket that was backgrounded or
+offline misses events, and no realtime system removes the need to re-read on the
+way back in.
+
+Two things to know before adding a table:
+
+- **Publish it in 0009 or the channel errors.** `CHANNEL_ERROR` on subscribe
+  almost always means the table is missing from the publication; the provider
+  logs that in development.
+- **Filters need a column.** Most tables are subscribed with
+  `couple_id=eq.<id>`. `profiles` and `love_languages` have no such column and
+  are subscribed unfiltered — Realtime evaluates their `shares_couple_with`
+  policies per subscriber, so publishing them does not widen who can read them,
+  but it does mean the server checks every change in those tables against every
+  subscriber. Worth revisiting if either grows.
+
+`hooks/use-async-data.ts` is the only fetching primitive — loading/error/refetch
+plus a refetch on screen focus, which is how home picks up a check-in written by
+a sheet without the two routes sharing state. There is no client-side cache; add
+one when two screens want the same rows at the same time.
+
+Two schema facts the home screen had to be built around, worth knowing before
+changing either:
+
+- **`checked_on_partner` lives on `check_ins`**, whose `mood` and `battery` are
+  `not null`. So the "I've checked up on them" control cannot create its own
+  row — inventing a mood to hold the flag would also feed the mutual-day streak
+  trigger. Home only offers the control once that day's check-in exists.
+- **`entry_date` defaults to UTC**, so the client computes "today" in UTC too
+  (`todayKey()` in `lib/home.ts`). Using the device's local date would put the
+  two sides of the one-per-day unique constraint on different days. Open
+  question 1 below is the real fix.
 
 **Never put the `service_role` key in `.env`.** Anything prefixed
 `EXPO_PUBLIC_` is compiled into the app bundle, and that key bypasses every

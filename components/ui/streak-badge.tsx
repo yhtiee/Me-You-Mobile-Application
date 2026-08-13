@@ -1,34 +1,43 @@
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
-import { palette, radius, space } from '@/constants/tokens';
+import { useTheme } from '@/components/providers/theme-provider';
+import { radius, space } from '@/constants/tokens';
 
 type Props = {
   count: number;
   onPress?: () => void;
 };
 
-/** 34px rounded-square, amberSoft fill, #B97400 numerals, 800 weight. */
+/**
+ * 34px rounded-square, amber fill, amber numerals, 800 weight.
+ *
+ * The numerals used to be `#B97400`, which is 3.4:1 on `amberSoft` — under the
+ * 4.5:1 this size of text needs. `tint.amber.fg` is the same hue two steps
+ * darker and passes at 6:1, and it inverts on its own in dark mode.
+ */
 export function StreakBadge({ count, onPress }: Props) {
+  const theme = useTheme();
+
   const content = (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'center',
         gap: space.sm - 2,
-        backgroundColor: palette.brand.amberSoft,
+        backgroundColor: theme.tint.amber.bg,
         borderRadius: radius.md - 2,
         borderCurve: 'continuous',
         paddingHorizontal: space.md - 2,
         height: 34,
       }}
     >
-      <Text role="caption" color="#B97400">
+      <Text role="caption" color={theme.tint.amber.fg}>
         🔥
       </Text>
       <Text
         role="cardTitle"
-        color="#B97400"
+        color={theme.tint.amber.fg}
         tabular
         style={{ fontFamily: 'PlusJakartaSans_800ExtraBold' }}
       >
