@@ -3,18 +3,19 @@ import { View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { Text } from '@/components/ui/text';
-import { useCouple } from '@/components/providers/couple-provider';
+import { Glyph } from '@/components/ui/glyph';
+import { usePlayPeople } from '@/hooks/use-play';
 import { space } from '@/constants/tokens';
 
 /** Both swiped right (PRD Module 2). */
 export default function MatchDialog() {
-  const { partner } = useCouple();
+  const { partner } = usePlayPeople();
+  const partnerName = partner?.name ?? 'They';
 
   return (
     <Dialog
       title="You both said yes"
-      subtitle={`${partner.name} picked this one too. That’s tonight sorted.`}
+      subtitle={`${partnerName} picked this one too. That’s tonight sorted.`}
       actions={
         <>
           <Button
@@ -30,7 +31,7 @@ export default function MatchDialog() {
       }
     >
       <View style={{ alignItems: 'center', paddingVertical: space.md }}>
-        <Text style={{ fontSize: 48 }}>🍿</Text>
+        <Glyph size={48}>🍿</Glyph>
       </View>
     </Dialog>
   );

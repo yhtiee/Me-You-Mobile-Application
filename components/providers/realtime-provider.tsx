@@ -48,7 +48,29 @@ const COUPLE_SCOPED = [
   'bucket_list_items',
   'wiki_entries',
   'calendar_events',
+  /*
+   * Play. The wheel is the one that has to be live: it is a shared list, and an
+   * option added on one phone must be on the wheel before the other spins it.
+   *
+   * `date_ideas` and `trivia_questions` are couple-scoped here even though both
+   * also hold stock rows with a null `couple_id` — those never change, so a
+   * filter that excludes them costs nothing and keeps the subscription narrow.
+   */
+  'wheel_options',
+  'date_ideas',
+  'trivia_rounds',
 ] as const;
+
+/**
+ * Private to one person, and subscribed with a `user_id` filter below.
+ *
+ * `picker_swipes` is here rather than in `COUPLE_SCOPED` for a reason that is
+ * not just tidiness: the table has a `couple_id`, so filtering on it would
+ * work — and would forward the partner's swipes to this device. The whole
+ * feature promises that never happens. Filtering on `user_id` keeps the socket
+ * honest even though RLS would also refuse the read.
+ */
+const USER_SCOPED = ['todos', 'growth_habits', 'picker_swipes'] as const;
 
 /**
  * Tables with no couple column. Subscribed unfiltered and scoped by RLS —
@@ -109,11 +131,13 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     // Private to one person, but the same person may have two devices.
     if (userId) {
-      channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${userId}` },
-        () => notify('todos')
-      );
+      for (const table of USER_SCOPED) {
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` },
+          () => notify(table)
+        );
+      }
     }
 
     channel.subscribe((status) => {

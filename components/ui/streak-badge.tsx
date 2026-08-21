@@ -1,5 +1,6 @@
 import { Pressable, View } from 'react-native';
 
+import { Glyph } from '@/components/ui/glyph';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/components/providers/theme-provider';
 import { radius, space } from '@/constants/tokens';
@@ -32,9 +33,9 @@ export function StreakBadge({ count, onPress }: Props) {
         height: 34,
       }}
     >
-      <Text role="caption" color={theme.tint.amber.fg}>
-        🔥
-      </Text>
+      {/* Fixed 34px pill, so this must not scale with the OS text size — at the
+          largest settings a scaling flame is taller than the badge holding it. */}
+      <Glyph size={12}>🔥</Glyph>
       <Text
         role="cardTitle"
         color={theme.tint.amber.fg}

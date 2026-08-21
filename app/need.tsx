@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { SheetBody } from '@/components/ui/sheet';
+import { Glyph } from '@/components/ui/glyph';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/components/providers/auth-provider';
 import { useTheme } from '@/components/providers/theme-provider';
@@ -81,7 +82,7 @@ export default function Need() {
                 opacity: pending !== null && !active ? 0.5 : 1,
               }}
             >
-              <Text style={{ fontSize: 20 }}>{option.glyph}</Text>
+              <Glyph size={20}>{option.glyph}</Glyph>
               <Text role="bodyStrong" style={{ flex: 1 }}>
                 {NEED_LABELS[option.key].replace('Needs ', '')}
               </Text>

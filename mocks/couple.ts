@@ -3,13 +3,10 @@ import type {
   CalendarEvent,
   CheckinState,
   CoachMessage,
-  DateIdea,
   Goal,
-  GrowthHabit,
   Level,
   LoveLanguage,
   Person,
-  PickerCard,
   Todo,
   WikiEntry,
 } from '@/types/domain';
@@ -102,12 +99,11 @@ export const wiki: WikiEntry[] = [
   { id: 'w7', category: 'wishlist', label: 'Birthday wishlist', value: 'Film camera, that green scarf', cachedOffline: false },
 ];
 
-export const calendar: CalendarEvent[] = [
-  { id: 'c1', title: 'Sarah’s birthday', date: '2026-08-14', kind: 'birthday' },
-  { id: 'c2', title: 'Our anniversary', date: '2026-09-02', kind: 'anniversary' },
-  { id: 'c3', title: 'Dinner at Mirabelle', date: '2026-08-01', kind: 'date-night' },
-  { id: 'c4', title: 'First date anniversary', date: '2026-11-18', kind: 'first-date' },
-];
+/*
+ * The `calendar` array lived here. It is gone because the calendar tab now
+ * reads `calendar_events` through `lib/calendar.ts` — and while both existed,
+ * the date setter wrote a real row that this hardcoded list could never show.
+ */
 
 export const todos: Todo[] = [
   { id: 't1', label: 'Buy flowers on the way home', done: false },
@@ -137,35 +133,12 @@ export const coachSuggestions: string[] = [
   'Gift ideas under $50',
 ];
 
-export const movieCards: PickerCard[] = [
-  { id: 'p1', title: 'Past Lives', meta: 'Drama · 1h 45m', partnerLiked: true },
-  { id: 'p2', title: 'The Grand Budapest Hotel', meta: 'Comedy · 1h 39m', partnerLiked: false },
-  { id: 'p3', title: 'Everything Everywhere All at Once', meta: 'Sci-fi · 2h 19m', partnerLiked: true },
-  { id: 'p4', title: 'Before Sunrise', meta: 'Romance · 1h 41m', partnerLiked: false },
-  { id: 'p5', title: 'Paddington 2', meta: 'Family · 1h 43m', partnerLiked: true },
-];
-
-export const wheelOptions: string[] = [
-  'You cook tonight',
-  'Sarah does the dishes',
-  'You pick the movie',
-  'Sarah walks the dog',
-];
-
-export const dateIdeas: DateIdea[] = [
-  { id: 'd1', title: 'Dinner at Mirabelle', location: 'Old Town', time: 'Sat 7:30 pm' },
-  { id: 'd2', title: 'Sunset walk + gelato', location: 'Riverside', time: 'Sun 6:00 pm' },
-  { id: 'd3', title: 'That pottery class', location: 'Kiln Studio', time: 'Thu 6:30 pm' },
-];
-
-export const growthHabits: GrowthHabit[] = [
-  { id: 'h1', label: 'Better active listening', rating: 3 },
-  { id: 'h2', label: 'Say the thing before it festers', rating: 4 },
-  { id: 'h3', label: 'Phones down at dinner', rating: 2 },
-];
-
-export const triviaQuestions = [
-  { id: 'q1', question: 'Where did we first meet?', options: ['A wedding', 'A bookshop', 'Work', 'A bar'], answer: 1 },
-  { id: 'q2', question: 'What’s my worst habit, honestly?', options: ['Snoring', 'Being late', 'Interrupting', 'Loud chewing'], answer: 2 },
-  { id: 'q3', question: 'My comfort film?', options: ['Paddington 2', 'Titanic', 'Heat', 'Shrek'], answer: 0 },
-];
+/*
+ * Play's seed data used to live here — `movieCards`, `wheelOptions`,
+ * `dateIdeas`, `growthHabits` and `triviaQuestions`.
+ *
+ * It is gone rather than left in place because Play now reads Postgres
+ * (`lib/play.ts`), and the equivalent rows are stock content in
+ * `0008_seed.sql` and `0012_play.sql`. Two copies of the same list, one of
+ * which nothing renders, is how the seed and the schema drift apart.
+ */

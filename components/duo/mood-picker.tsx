@@ -1,5 +1,6 @@
 import { Pressable, View } from 'react-native';
 
+import { Glyph } from '@/components/ui/glyph';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/components/providers/theme-provider';
 import { layout, palette, radius, space } from '@/constants/tokens';
@@ -49,7 +50,9 @@ export function MoodPicker({ value, onChange }: Props) {
               backgroundColor: theme.color.surface,
             }}
           >
-            <Text role="title3">{mood.glyph}</Text>
+            {/* Decorative — the Pressable above already announces the mood, so
+                a screen reader reading the emoji too says it twice. */}
+            <Glyph size={19}>{mood.glyph}</Glyph>
             <Text
               role="overline"
               color={active ? palette.mood[mood.key] : theme.color.textTertiary}

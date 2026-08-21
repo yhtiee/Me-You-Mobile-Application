@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Screen } from '@/components/ui/screen';
+import { Glyph } from '@/components/ui/glyph';
 import { Text } from '@/components/ui/text';
 import { usePremium } from '@/hooks/use-premium';
 import { useTheme } from '@/components/providers/theme-provider';
@@ -61,7 +62,7 @@ export default function Paywall() {
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: 20 }}>{perk.glyph}</Text>
+              <Glyph size={20}>{perk.glyph}</Glyph>
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text role="cardTitle">{perk.title}</Text>

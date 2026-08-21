@@ -37,6 +37,12 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Supabase CLI local state — which project this checkout is linked to, plus
+# cached remote version numbers. Per-machine, not per-repo: committing it would
+# point a teammate's `db push` at whatever project the last person linked.
+# The migrations themselves are tracked; only this scratch state is not.
+supabase/.temp/
+
 app-example
 
 # generated native folders

@@ -87,6 +87,88 @@ export const tints = {
 } as const;
 
 /**
+ * Play — per-game identity.
+ *
+ * The Play hub shows six games at once, so each needs to be recognisable by
+ * colour before its label is read. Five soft tints could not carry that: `rose`
+ * was doing double duty for the wheel *and* trivia in the old grid, which is
+ * exactly why every tile looked the same.
+ *
+ * No hue here is invented. Every base traces back to a value already in this
+ * file — `brand.amber`, `brand.rose`, `brand.iris`, `light.success`, and the
+ * two mood hues (`mood.sad`, `mood.stressed`) that were already being used as
+ * wheel segment fills. What is new is the *pairs*: a `bg`/`fg`/`muted` triple
+ * per scheme for the two mood hues, which never had one, built to the same rule
+ * the `tints` block above states — every `fg` and `muted` clears 4.5:1 on its
+ * own `bg`. Measured ratios are in the comments; do not substitute a "close
+ * enough" hex without re-checking, because these fills are the whole navigation
+ * system of the hub.
+ */
+export const playTints = {
+  light: {
+    // Reused verbatim from `tints.light` — same hue, already verified.
+    coin: { bg: '#FFF1D6', fg: '#7A4E00', muted: '#8F5A00' },
+    wheel: { bg: '#FFE6EA', fg: '#A82F46', muted: '#8A5560' },
+    date: { bg: '#EEEAFB', fg: '#3F3161', muted: '#6B5C8E' },
+    growth: { bg: '#E6F1EA', fg: '#2C6146', muted: '#4A7A62' },
+    // New pairs, built on `mood.sad` #7E9BD4. fg 7.0:1, muted 4.8:1.
+    picker: { bg: '#E7EDF9', fg: '#2F4E85', muted: '#4C6899' },
+    // New pairs, built on `mood.stressed` #E4795F. fg 5.7:1, muted 5.6:1.
+    trivia: { bg: '#FCE8E2', fg: '#A03B22', muted: '#8D4A38' },
+  },
+  dark: {
+    coin: { bg: '#38270A', fg: '#FFD79A', muted: '#D9B173' },
+    wheel: { bg: '#3B1B24', fg: '#FFC2CE', muted: '#D3A3AD' },
+    date: { bg: '#241D3B', fg: '#CFC4FF', muted: '#A79BD6' },
+    growth: { bg: '#16301F', fg: '#9BD9B5', muted: '#7FB899' },
+    // fg 9.5:1, muted 6.2:1 on their own bg.
+    picker: { bg: '#1C2740', fg: '#BDD0F0', muted: '#94A9CC' },
+    // fg 9.7:1, muted 6.7:1 on their own bg.
+    trivia: { bg: '#3A1E15', fg: '#FFC0AB', muted: '#D6A08D' },
+  },
+} as const;
+
+/**
+ * Full-saturation accent per game — the wheel wedge, the progress fill, the
+ * dot on a stat pill. Never a text colour on a light ground: `amber` on white
+ * is about 2:1. Use `playTints[scheme][game].fg` for ink.
+ */
+export const playAccents = {
+  coin: '#F5A524',
+  wheel: '#F0546F',
+  date: '#6E5AC8',
+  picker: '#7E9BD4',
+  trivia: '#E4795F',
+  growth: '#3B7F5C',
+} as const;
+
+export type PlayGameKey = keyof typeof playAccents;
+
+/**
+ * Wheel wedge fills — a *darkened* run of the Play accents.
+ *
+ * These are not `playAccents` and must not be replaced with them. The wedges
+ * carry their own labels in 13px white, which is body-sized text and therefore
+ * owes 4.5:1; four of the six accents are nowhere near it (`coin` is 2.05:1
+ * against white, `picker` 2.6:1, `trivia` 2.9:1, `wheel` 3.35:1). Each value
+ * below is the same hue taken down until white clears, measured:
+ *
+ *   #D63C58 rose    4.52:1     #4E74B0 blue    4.72:1
+ *   #6E5AC8 iris    5.30:1     #3B7F5C green   4.80:1
+ *   #A35F00 amber   5.01:1     #B04E33 coral   5.27:1
+ *
+ * Six values so a wheel needs a seventh option before a colour repeats.
+ */
+export const wheelFills = [
+  '#D63C58',
+  '#6E5AC8',
+  '#A35F00',
+  '#4E74B0',
+  '#3B7F5C',
+  '#B04E33',
+] as const;
+
+/**
  * Gradients are CSS strings for `experimental_backgroundImage` (New Arch only,
  * which this app enables). Deliberately NOT expo-linear-gradient.
  */
@@ -104,7 +186,25 @@ export const gradients = {
   duo: 'linear-gradient(135deg,#D63C58,#6E5AC8)',
   wash: 'linear-gradient(180deg,#FCEFF3,#FBF8FA 34%)',
   washDark: 'linear-gradient(180deg,#241A2A,#161119 34%)',
-  coin: 'linear-gradient(135deg,#F5A524,#F0546F)',
+
+  /**
+   * The Play hero — amber through rose into iris, the app's whole brand range
+   * in one sweep. It is the only surface in Play that carries white text, which
+   * is what sets the stops: `#A35F00` is a darkened `brand.amber` at 5.0:1 on
+   * white, `#D63C58` is `rosePressed` at 4.5:1, `#6E5AC8` is `iris` at 5.3:1,
+   * and the two interpolated midpoints land at 5.0:1 and 5.3:1. So every pixel
+   * of the ramp clears 4.5:1 for white body text, not just the three stops.
+   *
+   * Do not "brighten" the first stop to `brand.amber` — #F5A524 is 2.05:1 on
+   * white and takes the overline sitting over it with it.
+   */
+  play: 'linear-gradient(135deg,#A35F00,#D63C58 52%,#6E5AC8)',
+
+  /**
+   * The coin faces. Same correction as `play`: this used to start at
+   * `brand.amber`, which put a 38px white "You" on a 2:1 ground.
+   */
+  coin: 'linear-gradient(135deg,#A35F00,#D63C58)',
   premium: 'linear-gradient(135deg,#6E5AC8,#3F3161)',
   brandCta: 'linear-gradient(180deg,#F0546F,#D63C58)',
   xp: 'linear-gradient(90deg,#F5A524,#F0546F)',
@@ -225,6 +325,22 @@ export const motion = {
   reward: { ms: 420, overshoot: 0.04 },
   coin: { ms: 1150 },
   wheel: { ms: 1400 },
+
+  /**
+   * Play-specific curves.
+   *
+   * `stagger` is the gap between two tiles entering, not a duration — six tiles
+   * at 55ms each finish in 330ms, which is under the 400ms where a list stops
+   * feeling like it is arriving and starts feeling like it is loading.
+   *
+   * `celebrate` is deliberately longer than `reward`: it plays once, after a
+   * result the user was waiting on, and it is the only moment in the app that
+   * gets to be theatrical.
+   */
+  stagger: { ms: 55 },
+  celebrate: { ms: 620 },
+  /** Idle breathing on the hero glyph. One slow cycle, never attention-seeking. */
+  idle: { ms: 2600 },
 } as const;
 
 /**

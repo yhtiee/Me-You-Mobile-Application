@@ -20,6 +20,10 @@ one before it has run.
 | `0008_seed.sql` | Levels, stock picker items, date ideas, trivia. Idempotent |
 | `0009_realtime.sql` | Publishes the shared tables to `supabase_realtime`. Idempotent |
 | `0010_profile.sql` | Profile phone + social columns, and the avatar storage bucket. Idempotent |
+| `0011_gallery.sql` | Gallery media + its storage bucket |
+| `0012_play.sql` | `wheel_options`, `trivia_rounds` (+ scoping `trivia_responses` to one), `play_stats()`, more stock content. Idempotent, with one destructive step |
+| `0013_event_time.sql` | Optional `calendar_events.event_time`, and the ordering index that goes with it. Idempotent |
+| `0014_reminders.sql` | `event_reminders` — lead times per event, shared by the couple. Idempotent |
 
 `0008` is safe to re-run. `0001`–`0007` are not — they use bare `create table`,
 so re-running raises "already exists" rather than silently doing something
@@ -143,6 +147,37 @@ it mid-thread shifts behaviour and breaks the cached prefix.
 HTTP 200 with empty content — without it, a refused turn is indistinguishable
 from one that produced nothing.
 
+**Reminders belong to the event, not to a person.** `event_reminders` has no
+`user_id`: both partners should be reminded of their own anniversary, and a
+reminder one of them sets is information the other needs. Each device schedules
+its own local notifications from the shared rows (`lib/notifications.ts`), which
+is why the table is published to realtime — a reminder added on one phone has to
+reach the other phone, because that is what has to schedule it. The cost is that
+neither partner can silence one just for themselves; if that matters, add a
+per-user mute table rather than making these rows private.
+
+**`recurs_annually` is resolved on read, never written forward.** A birthday
+keeps its original stored year for ever, and `nextOccurrence()` in `utils/date.ts`
+rolls it into the current one at render. Storing the next occurrence instead
+would need a job to advance every row each year, and would throw away the
+original date — which is what makes "their 3rd birthday together" answerable.
+
+**Trivia is scoped to a round, not to a question.** `0006` keyed
+`trivia_responses` on `(question_id, user_id)`, which means a person can answer
+any given question exactly once, for ever — so a score is permanent and "play
+again" is impossible. `0012` adds `trivia_rounds` and re-keys responses on
+`(round_id, question_id, user_id)`. The round also denormalises `score` and
+`total` on completion, because the hub asks for a personal best on every open
+and deriving it from the responses is three joins deep.
+
+**`play_stats()` output columns are suffixed `_count`.** Three of the numbers it
+returns are about tables named `wheel_options`, `picker_matches` and
+`trivia_rounds`. A `returns table` column is in scope inside the body like a
+parameter, so naming them after those objects puts a variable and a relation
+under one identifier — which Postgres resolves inconsistently by position. The
+suffixes are the fix and `lib/play.ts` maps them back to unsuffixed domain
+fields at the edge.
+
 **`picker_matches()` is a function, not a view.** Swipes are owner-only —
 "swipe separately, you'll only hear about the matches" — but computing a match
 needs both sides. A `security_invoker` view would run under the caller's own
@@ -168,14 +203,27 @@ make it look decided. It stays computed in the app until you confirm it.
    Not modelled, because the right answer depends on whether you treat the
    couple or the person as the clock.
 
+   `0013` adds `calendar_events.event_time` as a bare `time`, not a
+   `timestamptz`, which is a deliberate position on the same question in the
+   other direction: "dinner at 7:30" means 7:30 where the couple is, and an
+   instant would move the dinner when one of them travels. That is right for a
+   plan two people make out loud and wrong for anything needing a true ordering
+   across zones — so if this table ever grows reminders or notifications, they
+   need the zone this question is really about.
+
 2. **Growth habit history.** `growth_habits.rating` holds only the current
    value. The PRD calls it a *weekly* self-rating, which implies a
-   `(habit_id, week_start, rating)` history table. Left out until the UI shows a
-   trend — right now nothing renders one.
+   `(habit_id, week_start, rating)` history table. Still left out after `0012`,
+   on the same reasoning: the redesigned growth screen shows this week and no
+   trend, so the table would be written and never read. `rated_at` *is* now
+   written on every rating (`rateGrowthHabit`), which is what makes the history
+   recoverable when a trend view does ship.
 
-3. **`tool_events` may be dead weight.** Nothing reads it; the coin and wheel
-   resolve on the device. It exists so "who's been the bigger person lately" is
-   answerable later. Drop the table if that never ships.
+3. ~~**`tool_events` may be dead weight.**~~ **Settled — it is read.** The
+   redesigned coin screen shows a fairness tally ("you've gone first 3 of the
+   last 5") off `kind = 'coin'`, and `play_stats()` counts both kinds for the
+   hub tiles. The payload shape is now fixed by those readers: coin rows carry
+   `{ winner, stake }` and wheel rows `{ options, landed_on }`. Do not drop it.
 
 4. **Premium is per couple, not per user** (`couples.is_premium`). If one
    partner subscribes, both get it. That seems right for a shared app but it is
@@ -222,12 +270,20 @@ hook, not a screen tree.
 
 | Wired to Postgres | Still reading `mocks/couple.ts` |
 |---|---|
-| Auth and pairing (`lib/pairing.ts`, `components/providers/auth-provider.tsx`) | Play and the tools |
-| Home (`lib/home.ts` → `hooks/use-home.ts`) | Coach |
-| Check-in and the need follow-up (`app/checkin.tsx`, `app/need.tsx`) | Calendar |
-| Streak and level (`hooks/use-streak.ts`) | Premium / upgrade (`hooks/use-premium.ts`) |
-| Us — goals, bucket list, wiki, love languages (`lib/us.ts`) | The level ladder itself, which is static reference data |
+| Auth and pairing (`lib/pairing.ts`, `components/providers/auth-provider.tsx`) | Coach |
+| Home (`lib/home.ts` → `hooks/use-home.ts`) | Premium / upgrade (`hooks/use-premium.ts`) |
+| Check-in and the need follow-up (`app/checkin.tsx`, `app/need.tsx`) | The level ladder itself, which is static reference data |
+| Streak and level (`hooks/use-streak.ts`) | |
+| Us — goals, bucket list, wiki, love languages (`lib/us.ts`) | |
 | Private reminders (`lib/todos.ts` → `hooks/use-todos.ts`) | |
+| **Play and all six games (`lib/play.ts` → `hooks/use-play.ts`)** | |
+| **Calendar + reminders (`lib/calendar.ts` → `hooks/use-calendar.ts`)** | |
+
+**The calendar and the date setter are one feature now.** Play's date setter
+writes a `calendar_events` row, the Play hero reads upcoming events to decide
+whether to suggest planning one, and the Calendar tab renders the same table.
+While the tab was still on the mock array, an event created in a game was
+written to Postgres and then invisible — the bug that migration closed.
 
 ### Realtime
 

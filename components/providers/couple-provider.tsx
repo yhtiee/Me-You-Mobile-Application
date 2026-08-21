@@ -3,11 +3,9 @@ import { createContext, use, useState, type ReactNode } from 'react';
 import * as seed from '@/mocks/couple';
 import type {
   BucketListItem,
-  CalendarEvent,
   CheckinState,
   CoachMessage,
   Goal,
-  GrowthHabit,
   MoodKey,
   NeedKey,
   Todo,
@@ -60,12 +58,6 @@ export type CoupleStore = {
   wiki: WikiEntry[];
   updateWikiEntry: (id: string, value: string) => void;
 
-  calendar: CalendarEvent[];
-  addEvent: (event: Omit<CalendarEvent, 'id'>) => void;
-
-  growthHabits: GrowthHabit[];
-  rateHabit: (id: string, rating: number) => void;
-
   // coach
   coachThread: CoachMessage[];
   coachQuestionsUsed: number;
@@ -97,8 +89,6 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>(seed.goals);
   const [bucketList, setBucketList] = useState<BucketListItem[]>(seed.bucketList);
   const [wiki, setWiki] = useState<WikiEntry[]>(seed.wiki);
-  const [calendar, setCalendar] = useState<CalendarEvent[]>(seed.calendar);
-  const [growthHabits, setGrowthHabits] = useState<GrowthHabit[]>(seed.growthHabits);
   const [coachThread, setCoachThread] = useState<CoachMessage[]>(seed.coachThread);
   const [coachQuestionsUsed, setCoachQuestionsUsed] = useState(0);
   const [isPremium, setIsPremium] = useState(false);
@@ -143,13 +133,6 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
     wiki,
     updateWikiEntry: (id, value) =>
       setWiki((list) => list.map((w) => (w.id === id ? { ...w, value } : w))),
-
-    calendar,
-    addEvent: (event) => setCalendar((list) => [...list, { ...event, id: makeId('c') }]),
-
-    growthHabits,
-    rateHabit: (id, rating) =>
-      setGrowthHabits((list) => list.map((h) => (h.id === id ? { ...h, rating } : h))),
 
     coachThread,
     coachQuestionsUsed,

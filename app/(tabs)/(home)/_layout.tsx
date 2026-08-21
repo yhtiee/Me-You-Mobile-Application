@@ -2,6 +2,7 @@ import { Stack } from 'expo-router/stack';
 
 import { renderHomeHeader } from '@/components/ui/screen-header';
 import { stackScreenOptions } from '@/constants/nav-options';
+import { PLAY_GAMES } from '@/constants/play';
 
 export default function HomeStack() {
   return (
@@ -20,11 +21,16 @@ export default function HomeStack() {
       <Stack.Screen name="add-goal" options={{ title: 'New goal' }} />
       <Stack.Screen name="bucket-list" options={{ title: 'Bucket list' }} />
       <Stack.Screen name="love-languages" options={{ title: 'Love languages' }} />
-      <Stack.Screen name="tools/coin" options={{ title: 'Bigger person' }} />
-      <Stack.Screen name="tools/wheel" options={{ title: 'Whose turn' }} />
-      <Stack.Screen name="tools/date" options={{ title: 'Date setter' }} />
-      <Stack.Screen name="tools/picker" options={{ title: 'Movie & meal' }} />
-      <Stack.Screen name="tools/games" options={{ title: 'Games' }} />
+      {/* Titles come from the Play catalogue rather than being retyped here —
+          the header and the tile you tapped to get to it were already drifting
+          apart ("Games" vs "Games & growth"). */}
+      {PLAY_GAMES.map((game) => (
+        <Stack.Screen
+          key={game.key}
+          name={`tools/${game.key}`}
+          options={{ title: game.title }}
+        />
+      ))}
     </Stack>
   );
 }

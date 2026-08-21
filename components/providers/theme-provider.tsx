@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, use, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { gradients, palette, tabColors, tints } from '@/constants/tokens';
+import { gradients, palette, playAccents, playTints, tabColors, tints } from '@/constants/tokens';
 
 export type ThemeScheme = 'light' | 'dark';
 
@@ -15,11 +15,22 @@ export type SemanticColors = { -readonly [K in keyof typeof palette.light]: stri
 type TintSet = { bg: string; fg: string; muted: string };
 export type Tints = { -readonly [K in keyof typeof tints.light]: TintSet };
 
+/** One soft surface per Play game, plus the saturated accent that goes with it. */
+export type PlayTints = { -readonly [K in keyof typeof playTints.light]: TintSet };
+
 export type Theme = {
   scheme: ThemeScheme;
   color: SemanticColors;
   /** Soft surfaces and the ink that stays legible on them. */
   tint: Tints;
+  /**
+   * Per-game identity for the Play hub. Separate from `tint` because the keys
+   * are game names, not colour names — a screen asks for `play.picker`, and the
+   * hue that answers is a detail it should never have to know.
+   */
+  play: PlayTints;
+  /** Full-saturation accents, for fills only. Never text on a light ground. */
+  playAccent: typeof playAccents;
   brand: typeof palette.brand;
   person: typeof palette.person;
   mood: typeof palette.mood;
@@ -47,6 +58,8 @@ function buildTheme(scheme: ThemeScheme): Theme {
     scheme,
     color: dark ? palette.dark : palette.light,
     tint: dark ? tints.dark : tints.light,
+    play: dark ? playTints.dark : playTints.light,
+    playAccent: playAccents,
     brand: palette.brand,
     person: palette.person,
     mood: palette.mood,

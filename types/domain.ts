@@ -77,7 +77,31 @@ export type CalendarEvent = {
   title: string;
   /** ISO date, YYYY-MM-DD. */
   date: string;
+  /**
+   * Local wall-clock `HH:MM`, or null for an all-day event.
+   *
+   * Not part of `date` and not a timestamp: a birthday genuinely has no time,
+   * and "7:30" on a date night means 7:30 where the couple is. See
+   * `calendar_events.event_time`.
+   */
+  time?: string | null;
   kind: 'anniversary' | 'birthday' | 'first-date' | 'proposal' | 'date-night' | 'custom';
+  /**
+   * Repeats every year on the same month and day.
+   *
+   * Stored rather than inferred from `kind`, so a one-off anniversary dinner is
+   * still expressible. Where the event next *lands* is computed with
+   * `nextOccurrence` — the stored `date` keeps its original year, because that
+   * is what makes "their 3rd birthday together" answerable.
+   */
+  recursAnnually?: boolean;
+  reminders?: EventReminder[];
+};
+
+/** A nudge, N minutes before an event. Shared by the couple, not per-person. */
+export type EventReminder = {
+  id: string;
+  leadMinutes: number;
 };
 
 export type Todo = {
@@ -98,24 +122,79 @@ export type Level = {
   requirement: string;
 };
 
+export type PickerKind = 'movie' | 'meal';
+
 export type PickerCard = {
   id: string;
+  kind: PickerKind;
   title: string;
-  meta: string;
-  /** Mock-only: whether the partner already swiped right on this. */
-  partnerLiked: boolean;
+  meta: string | null;
+};
+
+/**
+ * A movie or meal you both swiped right on.
+ *
+ * There is deliberately no `partnerLiked` on `PickerCard` any more. The mock
+ * carried one, and shipping it would have broken the feature's one promise —
+ * "swipe separately, you'll only hear about the matches" — because a client
+ * holding that flag has already been told what its partner picked, whatever it
+ * chooses to render. Matches arrive only through `picker_matches()`, after both
+ * sides are in.
+ */
+export type PickerMatch = {
+  itemId: string;
+  kind: PickerKind;
+  title: string;
+  meta: string | null;
+  matchedAt: string;
 };
 
 export type GrowthHabit = {
   id: string;
   label: string;
-  /** Weekly self-rating, 1-5. */
-  rating: number;
+  /** Weekly self-rating, 1-5. Null until rated. */
+  rating: number | null;
 };
 
 export type DateIdea = {
   id: string;
   title: string;
-  location: string;
-  time: string;
+  location: string | null;
+  /** Free text ("Sat 7:30 pm"), not a timestamp — see `date_ideas.time_hint`. */
+  time: string | null;
+  /** Null on the app's stock ideas; set on ones the couple wrote. */
+  coupleId: string | null;
+};
+
+export type TriviaQuestion = {
+  id: string;
+  question: string;
+  options: string[];
+  answer: number;
+};
+
+/** One coin flip, newest first. Drives the "has this been fair?" tally. */
+export type CoinFlip = {
+  id: string;
+  /** Who the coin picked, resolved against the reading user. */
+  winner: 'you' | 'partner';
+  createdAt: string;
+};
+
+export type WheelOption = {
+  id: string;
+  label: string;
+};
+
+/** One row from `play_stats()` — the hub's six tile lines in one round trip. */
+export type PlayStats = {
+  coinFlips: number;
+  wheelSpins: number;
+  wheelOptions: number;
+  pickerMatches: number;
+  pickerRemaining: number;
+  triviaBest: number | null;
+  triviaRounds: number;
+  habitsRated: number;
+  habitsTotal: number;
 };

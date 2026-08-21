@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, Share, View } from 'react-native';
 
 import { SheetBody } from '@/components/ui/sheet';
+import { Glyph } from '@/components/ui/glyph';
 import { Text } from '@/components/ui/text';
 import { useCouple } from '@/components/providers/couple-provider';
 import { useTheme } from '@/components/providers/theme-provider';
@@ -62,7 +63,7 @@ export default function Handoff() {
               borderColor: theme.color.border,
             }}
           >
-            <Text style={{ fontSize: 20 }}>{app.glyph}</Text>
+            <Glyph size={20}>{app.glyph}</Glyph>
             <Text role="bodyStrong" style={{ flex: 1 }}>
               {app.label}
             </Text>
