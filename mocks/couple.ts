@@ -111,27 +111,12 @@ export const todos: Todo[] = [
   { id: 't3', label: 'Book the table for Saturday', done: true },
 ];
 
-export const coachThread: CoachMessage[] = [
-  {
-    id: 'm1',
-    from: 'coach',
-    text: 'Hey. I’m here whenever something’s sitting heavy, or when you just want a good date idea. What’s on your mind?',
-  },
-];
-
-/** Canned replies — the LLM call lands with the API layer. */
-export const coachReplies: string[] = [
-  'That sounds like a lot to carry quietly. Try naming the feeling before the fix — “I felt distant this week” lands softer than “you were distant”.',
-  'Sarah’s love language leans words of affirmation. A specific compliment about something she did, not how she looks, tends to go furthest.',
-  'Low-effort, high-warmth: cook something together with the phones in another room. The shared task does the talking.',
-  'You don’t have to resolve it tonight. Agree on a time to come back to it — that alone lowers the temperature.',
-];
-
-export const coachSuggestions: string[] = [
-  'How do I apologise properly?',
-  'Date idea for a rainy Tuesday',
-  'Gift ideas under $50',
-];
+/*
+ * The coach's `coachThread`, `coachReplies` and `coachSuggestions` lived here.
+ * Replies now come from Gemini through the `coach` Edge Function, the thread
+ * from `coach_messages`, and the opening suggestions — which were never mock
+ * data, only written copy — from `constants/coach.ts`.
+ */
 
 /*
  * Play's seed data used to live here — `movieCards`, `wheelOptions`,

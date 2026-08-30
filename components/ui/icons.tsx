@@ -336,3 +336,42 @@ export function ChevronIcon({ size = icon.sm, color }: IconProps) {
     </Svg>
   );
 }
+
+/**
+ * Send — an arrow, on the same 24-unit grid as everything else here.
+ *
+ * The composer used a `↑` character in a `Text` for this and a `+` for attach.
+ * A typed glyph sits on a text baseline, not in the middle of its box, so both
+ * rendered visibly high in their circular buttons — and where they landed
+ * depended on the font the OS picked. Drawn icons centre because the viewBox
+ * centres.
+ */
+export function SendIcon({ size = icon.md, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 19V5"
+        stroke={color}
+        strokeWidth={icon.stroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="m5.5 11.5 6.5-6.5 6.5 6.5"
+        stroke={color}
+        strokeWidth={icon.stroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** Stop — the square that replaces send while a reply is streaming. */
+export function StopIcon({ size = icon.sm, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="6" y="6" width="12" height="12" rx="2.5" fill={color} />
+    </Svg>
+  );
+}

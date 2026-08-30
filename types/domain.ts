@@ -110,10 +110,33 @@ export type Todo = {
   done: boolean;
 };
 
+/** A file on a coach message. `localUri` exists only before the upload lands. */
+export type CoachAttachment = {
+  storagePath: string;
+  mimeType: string;
+  fileName: string | null;
+  /** Device path, kept so a just-picked image renders before it is fetched back. */
+  localUri?: string;
+};
+
 export type CoachMessage = {
   id: string;
   from: 'you' | 'coach';
   text: string;
+  attachments?: CoachAttachment[];
+  /**
+   * `pending`/`streaming` are in-flight states the UI renders differently.
+   * `failed` covers both a refusal and a turn the user stopped.
+   */
+  status?: 'pending' | 'streaming' | 'complete' | 'failed';
+  stopReason?: string | null;
+  createdAt?: string;
+};
+
+export type CoachConversation = {
+  id: string;
+  title: string;
+  lastMessageAt: string;
 };
 
 export type Level = {

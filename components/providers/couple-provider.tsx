@@ -4,7 +4,6 @@ import * as seed from '@/mocks/couple';
 import type {
   BucketListItem,
   CheckinState,
-  CoachMessage,
   Goal,
   MoodKey,
   NeedKey,
@@ -19,8 +18,6 @@ import type {
  * read this context. When the API lands, the hook bodies become queries and
  * mutations and this provider goes away — no screen file changes.
  */
-
-const FREE_COACH_QUESTIONS_PER_DAY = 3;
 
 export type CoupleStore = {
   // people
@@ -59,10 +56,6 @@ export type CoupleStore = {
   updateWikiEntry: (id: string, value: string) => void;
 
   // coach
-  coachThread: CoachMessage[];
-  coachQuestionsUsed: number;
-  coachQuestionsAllowed: number;
-  askCoach: (text: string) => 'ok' | 'limit-reached';
 
   // monetisation
   isPremium: boolean;
@@ -89,8 +82,6 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>(seed.goals);
   const [bucketList, setBucketList] = useState<BucketListItem[]>(seed.bucketList);
   const [wiki, setWiki] = useState<WikiEntry[]>(seed.wiki);
-  const [coachThread, setCoachThread] = useState<CoachMessage[]>(seed.coachThread);
-  const [coachQuestionsUsed, setCoachQuestionsUsed] = useState(0);
   const [isPremium, setIsPremium] = useState(false);
   const [isPaired, setIsPaired] = useState(false);
 
@@ -133,23 +124,6 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
     wiki,
     updateWikiEntry: (id, value) =>
       setWiki((list) => list.map((w) => (w.id === id ? { ...w, value } : w))),
-
-    coachThread,
-    coachQuestionsUsed,
-    coachQuestionsAllowed: isPremium ? Infinity : FREE_COACH_QUESTIONS_PER_DAY,
-    askCoach: (text) => {
-      if (!isPremium && coachQuestionsUsed >= FREE_COACH_QUESTIONS_PER_DAY) {
-        return 'limit-reached';
-      }
-      const reply = seed.coachReplies[coachQuestionsUsed % seed.coachReplies.length];
-      setCoachThread((thread) => [
-        ...thread,
-        { id: makeId('m'), from: 'you', text },
-        { id: makeId('m'), from: 'coach', text: reply },
-      ]);
-      setCoachQuestionsUsed((n) => n + 1);
-      return 'ok';
-    },
 
     isPremium,
     upgrade: () => setIsPremium(true),

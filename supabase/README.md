@@ -24,6 +24,26 @@ one before it has run.
 | `0012_play.sql` | `wheel_options`, `trivia_rounds` (+ scoping `trivia_responses` to one), `play_stats()`, more stock content. Idempotent, with one destructive step |
 | `0013_event_time.sql` | Optional `calendar_events.event_time`, and the ordering index that goes with it. Idempotent |
 | `0014_reminders.sql` | `event_reminders` — lead times per event, shared by the couple. Idempotent |
+| `0015_coach.sql` | Gemini model default, server-assigned `seq`, `coach_attachments` + private bucket, `coach_quota()`. Idempotent |
+
+## Edge Functions
+
+`supabase/functions/coach` is the only server-side code in the project.
+
+```bash
+npx supabase functions deploy coach
+```
+
+It needs `GEMINI_API_KEY` in the project's secrets; `SUPABASE_URL`,
+`SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
+
+It exists because the key cannot live on the device — anything prefixed
+`EXPO_PUBLIC_` is compiled into the app bundle — and because it is where
+`claim_coach_question()` is called, which is what makes the free-tier quota a
+limit rather than a suggestion. It holds two Supabase clients on purpose: one
+bearing the caller's JWT, so every read and write is still checked by the 0007
+policies, and a service-role one used *only* to read the private attachments
+bucket.
 
 `0008` is safe to re-run. `0001`–`0007` are not — they use bare `create table`,
 so re-running raises "already exists" rather than silently doing something
@@ -243,25 +263,32 @@ make it look decided. It stays computed in the app until you confirm it.
    currently something you would flip by hand; real billing needs a
    `subscriptions` table keyed on the store transaction.
 
-7. **Who assigns `coach_messages.seq`?** Right now the writer does, and the
-   unique constraint catches a collision after the fact. That is fine for one
-   device; two devices posting to the same thread will see one insert rejected.
-   A `before insert` trigger taking `max(seq) + 1` under the row lock would make
-   it server-side — worth doing before multi-device.
+7. ~~**Who assigns `coach_messages.seq`?**~~ **Settled in `0015`.** A
+   `before insert` trigger now takes `max(seq) + 1` under a per-conversation
+   advisory lock, so two devices posting to one thread can no longer race — the
+   loser's insert used to be rejected *after* the model had been paid for.
 
-8. **The model key does not belong in the app.** `EXPO_PUBLIC_` variables are
-   compiled into the bundle, so an Anthropic key placed there is readable by
-   anyone who downloads the app. Coach calls have to go through an Edge
-   Function holding the key server-side — which is also where
-   `claim_coach_question()` gets called, so the quota can't be bypassed by
-   calling the model directly. That function is the piece the message `status`
-   column exists for: rows are written `pending` and settled when generation
-   finishes.
+8. ~~**The model key does not belong in the app.**~~ **Settled.** Coach calls go
+   through `supabase/functions/coach`, which holds `GEMINI_API_KEY` server-side
+   and is where `claim_coach_question()` is called.
+
+   Still open within it: the function writes the assistant row once, at the end,
+   rather than writing `pending` up front and settling it. That is what the
+   `status` column was designed for, and doing it would let a reply survive the
+   client dying mid-stream. Today a dropped connection loses the partial answer
+   — acceptable while replies are a few seconds long.
 
 9. **Nothing here decides the system prompt.** `prompt_version` records *which*
-   one a thread used; it does not store the text. Keep the prompt in the
-   repository next to the Edge Function so it is reviewable, and bump the
-   version when it changes.
+   one a thread used; it does not store the text. The prompt currently lives as
+   a constant at the top of the Edge Function, which is reviewable but means
+   `prompt_version` is not actually bumped when it changes. Wire that up before
+   the prompt is edited a second time.
+
+10. **Attachments have no reaper.** `coach_attachments` cascades on message and
+    conversation delete, but archiving a conversation leaves its objects in the
+    bucket, and a file picked and then removed before sending is orphaned
+    outright. A scheduled function reconciling the bucket against the table is
+    the fix; nothing does it today.
 
 ## What the client actually uses
 
@@ -270,10 +297,11 @@ hook, not a screen tree.
 
 | Wired to Postgres | Still reading `mocks/couple.ts` |
 |---|---|
-| Auth and pairing (`lib/pairing.ts`, `components/providers/auth-provider.tsx`) | Coach |
-| Home (`lib/home.ts` → `hooks/use-home.ts`) | Premium / upgrade (`hooks/use-premium.ts`) |
-| Check-in and the need follow-up (`app/checkin.tsx`, `app/need.tsx`) | The level ladder itself, which is static reference data |
+| Auth and pairing (`lib/pairing.ts`, `components/providers/auth-provider.tsx`) | Premium / upgrade (`hooks/use-premium.ts`) |
+| Home (`lib/home.ts` → `hooks/use-home.ts`) | The level ladder itself, which is static reference data |
+| Check-in and the need follow-up (`app/checkin.tsx`, `app/need.tsx`) | |
 | Streak and level (`hooks/use-streak.ts`) | |
+| **Coach (`lib/coach.ts` → `hooks/use-coach.ts`, + the `coach` function)** | |
 | Us — goals, bucket list, wiki, love languages (`lib/us.ts`) | |
 | Private reminders (`lib/todos.ts` → `hooks/use-todos.ts`) | |
 | **Play and all six games (`lib/play.ts` → `hooks/use-play.ts`)** | |
