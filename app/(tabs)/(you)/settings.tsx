@@ -5,6 +5,7 @@ import { Switch, View } from 'react-native';
 import { Card } from '@/components/ui/card';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
+import { TogetherEditor } from '@/components/home/together-editor';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/components/providers/auth-provider';
 import { usePremium } from '@/hooks/use-premium';
@@ -22,6 +23,16 @@ export default function Settings() {
 
   return (
     <Screen gap={space.xl}>
+      {/* First, because it is the one thing on this screen that changes what
+          Home looks like — and because until it is set the banner reads "Just
+          getting started" for everyone. */}
+      <View style={{ gap: space.sm }}>
+        <Text role="overline" color={theme.color.textTertiary}>
+          Your hub
+        </Text>
+        <TogetherEditor />
+      </View>
+
       <View style={{ gap: space.sm }}>
         <Text role="overline" color={theme.color.textTertiary}>
           Subscription

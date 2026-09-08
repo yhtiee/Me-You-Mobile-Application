@@ -12,11 +12,13 @@ import {
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { AuthGate } from '@/components/providers/auth-gate';
-import { AuthProvider, useAuth } from '@/components/providers/auth-provider';
+import { AuthProvider } from '@/components/providers/auth-provider';
 import { CoupleProvider } from '@/components/providers/couple-provider';
 import { LoaderProvider } from '@/components/providers/loader-provider';
 import { RealtimeProvider } from '@/components/providers/realtime-provider';
@@ -105,6 +107,31 @@ function ThemedNavigation() {
   const navTheme = useNavTheme();
   const theme = useTheme();
 
+  /*
+   * Paint the window itself, not just the React tree.
+   *
+   * Edge-to-edge is mandatory from Android 16 — `android.edgeToEdgeEnabled` is
+   * gone from the config schema, and Expo's own prebuild plugin now warns if it
+   * is still present — so the status and navigation bars are permanently
+   * transparent and the app draws underneath them. What shows through is the
+   * *root view*, which sits below everything React renders and defaults to a
+   * colour nothing in this app chose.
+   *
+   * That is the surface behind the clock and the gesture pill. Left unset it
+   * does not follow the theme, so switching to dark leaves the two ends of the
+   * screen lit. Setting it here means the bars always read as an extension of
+   * whatever screen is mounted, which is the whole intent of drawing edge to
+   * edge in the first place.
+   *
+   * `bgBase` rather than the wash: this is the floor under every route, and the
+   * wash is a gradient a route paints on top of it. `Screen` and `HeaderShell`
+   * both start their gradient at y=0, so on a washed screen the gradient still
+   * wins at the top — this only decides what is there when nothing else is.
+   */
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(theme.color.bgBase);
+  }, [theme.color.bgBase]);
+
   return (
     <NavThemeProvider value={navTheme}>
       <AuthGate>
@@ -161,12 +188,23 @@ function RootNavigator() {
                   sheetCornerRadius: radius.sheetIos,
                 }}
               />
+              {/*
+                * 0.86, up from 0.48. The sheet used to hold three bare rows;
+                * it now holds six, each carrying a suggested message and a
+                * tick, which is roughly 590pt of content before Dynamic Type
+                * touches it. At the old detent the last two apps sat below the
+                * fold on every phone.
+                *
+                * The list scrolls inside the sheet as well — the detent is the
+                * belt, that is the braces, and the same pairing is what keeps
+                * the check-in's save button reachable.
+                */}
               <Stack.Screen
                 name="handoff"
                 options={{
                   presentation: 'formSheet',
                   sheetGrabberVisible: true,
-                  sheetAllowedDetents: [0.48],
+                  sheetAllowedDetents: [0.86],
                   sheetCornerRadius: radius.sheetIos,
                 }}
               />

@@ -11,6 +11,7 @@ import { BackIcon, BellIcon, MoonIcon, SunIcon } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/components/providers/auth-provider';
 import { useProfile } from '@/hooks/use-profile';
+import { useUnreadCount } from '@/hooks/use-notifications';
 import { useTheme, useThemeControls } from '@/components/providers/theme-provider';
 import {
   gutter,
@@ -222,13 +223,48 @@ function HeaderShell({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The bell, with an unread dot.
+ *
+ * A dot rather than a number. The count is not actionable — nobody behaves
+ * differently for three notifications than for one — and a numeral inside a
+ * 36px circle either shrinks below legibility or breaks the circle at "10+".
+ * What the user needs to know is whether there is anything new.
+ *
+ * `useUnreadCount` is a `COUNT(*)` over a partial index with no payload, which
+ * matters because this component mounts on every screen that has a header.
+ */
 function BellButton() {
   const theme = useTheme();
+  const unread = useUnreadCount();
 
   return (
-    <CircleButton label="Notifications" onPress={() => router.push('/notifications')}>
-      <BellIcon size={icon.md} color={theme.color.textPrimary} />
-    </CircleButton>
+    <View>
+      <CircleButton label="Notifications" onPress={() => router.push('/notifications')}>
+        <BellIcon size={icon.md} color={theme.color.textPrimary} />
+      </CircleButton>
+
+      {unread > 0 ? (
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: -1,
+            right: -1,
+            width: 12,
+            height: 12,
+            borderRadius: radius.pill,
+            backgroundColor: palette.brand.rose,
+            // Ringed in the bar's own ground so the dot reads as sitting on top
+            // of the circle rather than merging into its edge.
+            borderWidth: 2,
+            borderColor: theme.color.bgBase,
+          }}
+        />
+      ) : null}
+    </View>
   );
 }
 

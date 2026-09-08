@@ -1,12 +1,13 @@
 import { View } from 'react-native';
 
 import { GameTile } from '@/components/play/game-tile';
+import { PlayActivityFeed } from '@/components/play/play-activity';
 import { PlayHero } from '@/components/play/play-hero';
 import { AdSlot } from '@/components/ui/ad-slot';
 import { ErrorState } from '@/components/ui/error-state';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/components/providers/theme-provider';
-import { usePlayHub } from '@/hooks/use-play';
+import { usePlayHub, usePlayPeople } from '@/hooks/use-play';
 import { cardGap, space } from '@/constants/tokens';
 import type { PlayGame } from '@/constants/play';
 
@@ -23,6 +24,7 @@ import type { PlayGame } from '@/constants/play';
 export function PlayHub() {
   const theme = useTheme();
   const { pick, kicker, stats, instant, session, error, refetch } = usePlayHub();
+  const { partner } = usePlayPeople();
 
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
@@ -45,6 +47,11 @@ export function PlayHub() {
         stats={stats}
         offset={instant.length}
       />
+
+      {/* Below the games rather than above them: the hub's job is to get you
+          into one, and a history that pushed the tiles down would put the
+          record of playing ahead of the playing. */}
+      <PlayActivityFeed partnerName={partner?.name ?? 'Your partner'} />
 
       <Text role="caption" center color={theme.color.textTertiary}>
         Nothing here is kept score of. That’s the point.

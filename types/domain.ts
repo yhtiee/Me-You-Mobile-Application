@@ -204,6 +204,24 @@ export type CoinFlip = {
   createdAt: string;
 };
 
+/**
+ * The couple's open coin session — one argument being settled.
+ *
+ * Distinct from `CoinFlip`, which is the log. This is the live state: whose
+ * turn it is, what is at stake, and what it landed on. Exactly one of these is
+ * open per couple at a time, enforced by a partial unique index.
+ */
+export type CoinSession = {
+  id: string;
+  /** Who is allowed to flip. Assigned by the server, never chosen. */
+  flipperId: string;
+  /** What is being settled, or null when it is just a coin. */
+  stake: string | null;
+  /** Who the coin picked. Null until it has been flipped. */
+  resultUserId: string | null;
+  flippedAt: string | null;
+};
+
 export type WheelOption = {
   id: string;
   label: string;

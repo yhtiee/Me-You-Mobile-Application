@@ -30,7 +30,29 @@ import { gutter, radius, space, washHeight } from '@/constants/tokens';
 export default function Coach() {
   const theme = useTheme();
   const chrome = useChromeInsets();
-  const keyboard = useAnimatedKeyboard();
+  /*
+   * Both flags are load-bearing, and leaving them off is what turned the system
+   * bars a different colour app-wide.
+   *
+   * On Android, Reanimated takes over the window's inset handling for as long as
+   * a keyboard subscription is alive, and with these unset — the default is
+   * `undefined` — it puts the window back to fitting system windows. The app
+   * stops drawing under the status and navigation bars, so the system paints its
+   * own background there and the bars stop matching the screen.
+   *
+   * The reason it survived leaving this screen is that `subscribeForKeyboardEvents`
+   * fires on first render and only unsubscribes on unmount, and react-navigation
+   * keeps tab screens mounted. So opening Coach once changed the window for the
+   * rest of the session, on every tab — which is exactly how it presented.
+   *
+   * This app is edge-to-edge everywhere (mandatory from Android 16), so the
+   * honest value for both is `true`: keep drawing under the bars, and just tell
+   * me how tall the keyboard is.
+   */
+  const keyboard = useAnimatedKeyboard({
+    isStatusBarTranslucentAndroid: true,
+    isNavigationBarTranslucentAndroid: true,
+  });
 
   /** Set by the history screen when a past conversation is chosen. */
   const params = useLocalSearchParams<{ conversationId?: string }>();

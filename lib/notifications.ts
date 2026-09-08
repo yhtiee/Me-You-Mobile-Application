@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { nextOccurrence, parseIsoDate } from '@/utils/date';
@@ -21,6 +20,57 @@ import type { CalendarEvent } from '@/types/domain';
  * replaces this file without the calendar screen changing.
  */
 
+/**
+ * `expo-notifications`, or `null` on a runtime that cannot load it.
+ *
+ * Deliberately a lazy `require` rather than a static import, and this is
+ * load-bearing rather than a style choice. On Android in Expo Go the module
+ * *throws from its own module scope* — remote push was removed from the Go
+ * client in SDK 53 — and a static `import` hoists that throw into the
+ * evaluation of this file.
+ *
+ * That is not a contained failure. When this module died it took
+ * `hooks/use-calendar` with it, and then both calendar routes, which reached
+ * expo-router as `loadRoute()` returning `undefined` and crashed the entire tab
+ * with `Cannot read property 'ErrorBoundary' of undefined` — an error naming
+ * neither notifications nor Expo Go. A capability the runtime does not have
+ * must degrade to a no-op; it must never take a route tree down with it.
+ *
+ * No environment sniffing. `Constants.executionEnvironment` does not cleanly
+ * separate Expo Go from a dev client (its own typings say `storeClient` covers
+ * both), and the question we actually need answered is "does this load here?",
+ * which the `try` answers directly and stays correct on runtimes that do not
+ * exist yet.
+ */
+type NotificationsModule = typeof import('expo-notifications');
+
+/** `undefined` = not yet attempted, `null` = attempted and unavailable. */
+let cached: NotificationsModule | null | undefined;
+
+function api(): NotificationsModule | null {
+  // Metro caches a module that threw and re-throws on every later `require`,
+  // so this must run at most once — hence caching the failure, not just the
+  // success.
+  if (cached !== undefined) return cached;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    cached = require('expo-notifications') as NotificationsModule;
+  } catch {
+    cached = null;
+  }
+
+  return cached;
+}
+
+/**
+ * Whether reminders can ring on this device *at all*, before permission is
+ * considered. False in Expo Go on Android; use a development build.
+ */
+export function isSupported(): boolean {
+  return api() !== null;
+}
+
 /** All-day events fire at 9am rather than midnight, which nobody is awake for. */
 const ALL_DAY_HOUR = 9;
 
@@ -35,7 +85,8 @@ const MAX_SCHEDULED = 48;
 let handlerConfigured = false;
 
 function configureHandler() {
-  if (handlerConfigured) return;
+  const Notifications = api();
+  if (!Notifications || handlerConfigured) return;
   handlerConfigured = true;
 
   Notifications.setNotificationHandler({
@@ -57,6 +108,12 @@ function configureHandler() {
  * reminder, at which point the prompt is obviously about the thing they just did.
  */
 export async function ensurePermission(): Promise<boolean> {
+  const Notifications = api();
+  // Not an error the caller has to branch on: "we cannot ring on this device"
+  // and "you said no" land in the same place, and `toggleReminder` already
+  // saves the reminder and tells the user either way.
+  if (!Notifications) return false;
+
   configureHandler();
 
   const existing = await Notifications.getPermissionsAsync();
@@ -71,13 +128,17 @@ export async function ensurePermission(): Promise<boolean> {
 }
 
 export async function hasPermission(): Promise<boolean> {
+  const Notifications = api();
+  if (!Notifications) return false;
+
   const status = await Notifications.getPermissionsAsync();
   return status.granted;
 }
 
 /** Android puts notifications in channels; without one they arrive silently. */
 async function ensureChannel() {
-  if (Platform.OS !== 'android') return;
+  const Notifications = api();
+  if (!Notifications || Platform.OS !== 'android') return;
 
   await Notifications.setNotificationChannelAsync('calendar', {
     name: 'Dates & reminders',
@@ -125,6 +186,9 @@ function body(event: CalendarEvent, leadMinutes: number): string {
  * No-ops without permission, so callers can fire it unconditionally.
  */
 export async function sync(events: CalendarEvent[]): Promise<void> {
+  const Notifications = api();
+  if (!Notifications) return;
+
   configureHandler();
 
   if (!(await hasPermission())) return;
@@ -166,5 +230,8 @@ export async function sync(events: CalendarEvent[]): Promise<void> {
 
 /** Drops every pending reminder. For sign-out and unpair. */
 export async function clearAll(): Promise<void> {
+  const Notifications = api();
+  if (!Notifications) return;
+
   await Notifications.cancelAllScheduledNotificationsAsync();
 }

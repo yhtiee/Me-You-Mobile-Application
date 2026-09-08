@@ -1,20 +1,21 @@
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
-import { AdSlot } from '@/components/ui/ad-slot';
-import { Card } from '@/components/ui/card';
-import { CheckboxRow } from '@/components/ui/checkbox-row';
-import { CoupleBanner, CoupleBannerSkeleton } from '@/components/home/couple-banner';
 import { DuoStateCard, DuoStateCardSkeleton } from '@/components/duo/duo-state-card';
-import { ErrorState } from '@/components/ui/error-state';
+import { CoupleBanner, CoupleBannerSkeleton } from '@/components/home/couple-banner';
 import { ProfilePrompt } from '@/components/home/profile-prompt';
 import { QuickActions } from '@/components/home/quick-actions';
+import { StreakSection, StreakSectionSkeleton } from '@/components/home/streak-section';
+import { useTheme } from '@/components/providers/theme-provider';
+import { AdSlot } from '@/components/ui/ad-slot';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { CheckboxRow } from '@/components/ui/checkbox-row';
+import { ErrorState } from '@/components/ui/error-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { layout, radius, space } from '@/constants/tokens';
 import { useHome, type HomeView } from '@/hooks/use-home';
-import { useTheme } from '@/components/providers/theme-provider';
-import { palette, space } from '@/constants/tokens';
 
 /**
  * The daily hub, and now the whole of Home: banner, quick actions, streak, both
@@ -61,13 +62,19 @@ function TodayContent({
         togetherLabel={view.togetherLabel}
         streak={view.streak}
         onPressStreak={() => router.push('/streak')}
+        onPressTogether={() => router.push('/settings')}
       />
 
-      <QuickActions />
+      <StreakSection
+        count={view.streak}
+        level={view.level}
+        bothCheckedIn={view.bothCheckedIn}
+        onPress={() => router.push('/streak')}
+      />
 
-      {/* Between the quick actions and the day's check-in: high enough to be
-          seen on open, low enough that it never displaces the thing the screen
-          exists for. Renders nothing once the profile is complete. */}
+      {/* Above the day's check-in: high enough to be seen on open, low enough
+          that it never displaces the thing the screen exists for. Renders
+          nothing once the profile is complete. */}
       <ProfilePrompt />
 
       <View style={{ gap: space.sm, marginTop: space.xs }}>
@@ -80,6 +87,16 @@ function TodayContent({
           onPressYou={() => router.push('/checkin')}
         />
       </View>
+      
+      {/*
+       * Below the check-in, not above it.
+       *
+       * These four are somewhere to go *next*; the check-in is the thing this
+       * screen exists for. Sitting directly under the banner they were the
+       * first interactive row on the page and pushed the day's actual ask below
+       * the fold on a small phone.
+       */}
+      <QuickActions />
 
       {/* Partner's dynamic status line, verbatim from the PRD example — but only
           once there is a status to line up. */}
@@ -109,7 +126,27 @@ function TodayContent({
         </Card>
       )}
 
-      <Card style={{ gap: space.md }}>
+      {/*
+       * Reaching out, given the weight it was missing.
+       *
+       * This used to be a bare checkbox and a caption-sized "Not yet — open a
+       * chat ›" at the very bottom of the screen — the one daily action the
+       * product is built around, styled smaller than the ad slot beneath it.
+       * It now carries its own heading, an explanation of what counts, and a
+       * real button rather than a text link.
+       */}
+      <Card style={{ gap: space.lg }}>
+        <View style={{ gap: space.xs }}>
+          <Text role="overline" color={theme.color.textTertiary}>
+            Reaching out
+          </Text>
+          <Text role="title3">Have you checked in on {partnerName} today?</Text>
+          <Text role="body" color={theme.color.textSecondary}>
+            A short message counts. It’s the reaching out that matters, not
+            finding the right words.
+          </Text>
+        </View>
+
         {/*
          * `checked_on_partner` is a column on today's check-in row, so there is
          * nothing to write it to until that row exists. Rather than silently
@@ -124,18 +161,24 @@ function TodayContent({
             onToggle={onToggleCheckedOnThem}
           />
         ) : (
-          <Pressable accessibilityRole="button" onPress={() => router.push('/checkin')} hitSlop={6}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/checkin')}
+            hitSlop={6}
+            style={{ minHeight: layout.minTarget, justifyContent: 'center' }}
+          >
             <Text role="bodyStrong" color={theme.color.textSecondary}>
               Check in first to log that you’ve checked up on {partnerName} ›
             </Text>
           </Pressable>
         )}
 
-        <Pressable accessibilityRole="button" onPress={() => router.push('/handoff')} hitSlop={6}>
-          <Text role="caption" color={palette.brand.rose}>
-            Not yet — open a chat ›
-          </Text>
-        </Pressable>
+        <Button
+          label={`Send ${partnerName} a message`}
+          variant="secondary"
+          full
+          onPress={() => router.push('/handoff')}
+        />
       </Card>
 
       <AdSlot show={!view.isPremium} />
@@ -156,7 +199,7 @@ function TodaySkeleton() {
   return (
     <>
       <CoupleBannerSkeleton />
-      <QuickActions />
+      <StreakSectionSkeleton />
 
       <View style={{ gap: space.sm, marginTop: space.xs }}>
         <Text role="overline" color={theme.color.textTertiary}>
@@ -165,21 +208,25 @@ function TodaySkeleton() {
         <DuoStateCardSkeleton tints={[theme.tint.rose.bg, theme.tint.iris.bg]} />
       </View>
 
+      {/* Static links that never load, so they render for real even here — and
+          in the same slot they occupy on the loaded screen, so nothing below
+          them shifts when the fetch lands. */}
+      <QuickActions />
+
       <Card style={{ gap: space.sm, backgroundColor: theme.tint.iris.bg }}>
         <Skeleton width={72} height={10} color={theme.color.surface} />
         <Skeleton width="86%" height={14} color={theme.color.surface} />
       </Card>
 
-      <Card style={{ gap: space.md }}>
-        <Skeleton width="70%" height={16} />
-        <Skeleton width={128} height={12} />
+      <Card style={{ gap: space.lg }}>
+        <View style={{ gap: space.xs }}>
+          <Skeleton width={82} height={10} />
+          <Skeleton width="76%" height={18} />
+          <Skeleton width="92%" height={12} />
+        </View>
+        <Skeleton width="70%" height={24} />
+        <Skeleton height={50} round={radius.pill} />
       </Card>
     </>
   );
-}
-
-/** Kept here so the deep-link intent is documented next to its only caller. */
-export async function openChatWith(scheme: string, fallback: string) {
-  const canOpen = await Linking.canOpenURL(scheme);
-  await Linking.openURL(canOpen ? scheme : fallback);
 }

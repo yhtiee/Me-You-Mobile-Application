@@ -1,22 +1,25 @@
-import { createContext, use, type ReactNode } from 'react';
-
-import { tabBarHeight } from '@/constants/tokens';
+import { BottomTabBarHeightContext } from 'expo-router/js-tabs';
+import { use } from 'react';
 
 /**
- * How much room the native tab bar takes off the bottom of a screen.
+ * How much room the tab bar takes off the bottom of a screen.
  *
- * SDK 54's NativeTabs renders the bar natively and hands its screens nothing —
- * no safe-area context, no height hook (both arrive in SDK 55). So the tabs
- * layout publishes the constant itself and every scrollable route reads it back
- * through `useChromeInsets`. Routes outside the tab tree — onboarding, the
- * paywall, the dialogs — get the 0 default and pad by safe area alone.
+ * Measured, not guessed. This used to publish a `tabBarHeight` constant — 49 on
+ * iOS, 80 on Android — because `NativeTabs` rendered the bar natively and
+ * handed its screens no height at all. Every wrong guess showed up as content
+ * stranded behind the bar or a gap floating above it, on exactly the devices
+ * nobody tested.
+ *
+ * The JS tab bar publishes its height through this context. Because our bar
+ * sets an explicit `height`, that is the capsule's height *only* —
+ * `getTabBarHeight` returns an explicit height verbatim rather than folding in
+ * the bottom safe-area inset the way it does for an auto-sized bar. The float
+ * offset and the inset are added on top in `useChromeInsets`, which is the one
+ * place that arithmetic lives.
+ *
+ * Returns 0 outside a tab navigator — onboarding, the paywall and the dialogs
+ * all render off the tab tree and pad by safe area alone.
  */
-const TabBarInsetContext = createContext(0);
-
-export function TabBarInsetProvider({ children }: { children: ReactNode }) {
-  return <TabBarInsetContext value={tabBarHeight}>{children}</TabBarInsetContext>;
-}
-
 export function useTabBarInset(): number {
-  return use(TabBarInsetContext);
+  return use(BottomTabBarHeightContext) ?? 0;
 }

@@ -41,6 +41,18 @@ export type HomeView = {
   /** Null if the other half has not joined, or has left. */
   partner: HomeSide | null;
   streak: number;
+  /**
+   * Level on the PRD §5 ladder, for the streak section under the banner.
+   *
+   * Read from the snapshot this hook already fetches rather than through
+   * `useStreak`. Both read the same `couples` row, so putting `useStreak` on
+   * Home would spend a second query and a second realtime subscription to
+   * re-derive a number already sitting in `data` — and give the banner and the
+   * section under it two chances to disagree.
+   */
+  level: number;
+  /** Both halves checked in today, so the streak is safe. */
+  bothCheckedIn: boolean;
   /** Null when the couple has never set a start date. */
   togetherLabel: string | null;
   isPremium: boolean;
@@ -146,6 +158,10 @@ export function useHome() {
         you: toSide(data.you, data.yourCheckin, palette.person.you, tint.rose.bg) as HomeSide,
         partner: toSide(data.partner, data.partnerCheckin, palette.person.partner, tint.iris.bg),
         streak: data.streak,
+        level: data.level,
+        // The streak trigger moves on the second check-in of the day, so "both
+        // in" is exactly the condition that takes the streak out of danger.
+        bothCheckedIn: data.yourCheckin !== null && data.partnerCheckin !== null,
         togetherLabel: data.togetherSince ? durationSince(data.togetherSince) : null,
         isPremium: data.isPremium,
         partnerCheckin: data.partnerCheckin,

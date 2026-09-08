@@ -12,7 +12,15 @@ type Props<T extends string> = {
 
 /**
  * Track surface.sunken, pill radius, 4px inset. Active thumb is white +
- * shadow.1 + rose label. Spec caps this at 3 items (Today / Us / Play).
+ * shadow.1 + rose label.
+ *
+ * The spec wrote this for 3 items (Today / Us / Play), which no longer exist.
+ * It is not limited to three — every item is `flex: 1`, so the track divides
+ * evenly however many it is given — and the check-in sheet uses it for the six
+ * battery stops, where the point is that a level is *one control with a
+ * position in it* rather than six buttons. Six is comfortable at 375pt; past
+ * that, labels start truncating and the answer is fewer stops, not a smaller
+ * font.
  */
 export function SegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
   const theme = useTheme();

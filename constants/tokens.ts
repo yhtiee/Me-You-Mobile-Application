@@ -7,8 +7,6 @@
  * dark palette can be switched on later without touching a single screen.
  */
 
-import { Platform } from 'react-native';
-
 export const palette = {
   brand: {
     rose: '#F0546F',
@@ -210,45 +208,39 @@ export const gradients = {
   xp: 'linear-gradient(90deg,#F5A524,#F0546F)',
 } as const;
 
-/** Tab-bar colours. Spec: active rose, inactive #C4BAC9. */
+/**
+ * Tab-bar colours. Spec: active rose, inactive #C4BAC9.
+ *
+ * The bar floats: it is a capsule inset from all three edges, with the screen's
+ * own background running edge to edge behind and beneath it. That is why there
+ * is no opaque fill token here — the surface is a blur, and what shows through
+ * it is the screen, which is exactly the continuity that a bar bolted to the
+ * bottom edge could never give.
+ *
+ * `scrim` is a translucent wash laid over the blur, not instead of it. A blur
+ * alone tracks whatever passes behind it, so a white card sliding under the bar
+ * takes the labels with it; the scrim holds a floor of contrast so `inactive`
+ * stays legible over any content. Kept low enough that the blur still reads.
+ *
+ * `hairline` is the capsule's edge. On glass it is the only thing separating
+ * the bar from a light background — without it the capsule dissolves at the
+ * top of a scrolled screen — so it is a *border*, not a shadow, and it is per
+ * scheme because a dark rim on a dark bar is invisible.
+ */
 export const tabColors = {
   active: '#F0546F',
   inactive: '#C4BAC9',
-  /**
-   * Frosted tab-bar fill, layered over the blur on iOS.
-   *
-   * The two platforms need different alphas because they are doing different
-   * things. iOS already has a UIBlurEffect underneath, so the tint only has to
-   * warm it toward the wash — push the alpha up and it flattens back into a
-   * solid bar. Android's Material 3 bottom nav has no blur primitive at all, so
-   * the alpha is the entire effect there and has to stay high enough that
-   * scrolling cards behind it don't fight the labels.
-   */
-  glass: Platform.select({
-    ios: 'rgba(251,248,250,0.55)',
-    android: 'rgba(251,248,250,0.88)',
-    default: 'rgba(251,248,250,0.72)',
-  }),
-  glassDark: Platform.select({
-    ios: 'rgba(22,17,25,0.55)',
-    android: 'rgba(22,17,25,0.88)',
-    default: 'rgba(22,17,25,0.72)',
-  }),
-  /** Plum-tinted hairline above the bar, never neutral black. */
-  glassHairline: 'rgba(34,26,43,0.06)',
   /** Android press ripple — rose at low alpha, matching the active tint. */
   ripple: 'rgba(240,84,111,0.12)',
+  light: {
+    scrim: 'rgba(251,248,250,0.55)',
+    hairline: 'rgba(34,26,43,0.08)',
+  },
+  dark: {
+    scrim: 'rgba(33,26,40,0.55)',
+    hairline: 'rgba(246,241,247,0.12)',
+  },
 } as const;
-
-/**
- * Height the native tab bar occupies, *excluding* the bottom safe-area inset.
- *
- * SDK 54's NativeTabs publishes neither content insets nor a height hook — it
- * wraps its screens in nothing at all — so scrollable routes have to pad by
- * hand. See `useChromeInsets`. Values are the platform defaults: UITabBar's
- * standard height on iOS, Material 3's NavigationBar height on Android.
- */
-export const tabBarHeight = Platform.select({ ios: 49, android: 80, default: 56 });
 
 /**
  * Toast fills. Not from the tokens doc — the spec predates the component.
@@ -289,6 +281,38 @@ export const space = {
 /** Screen gutter is 20 on both platforms; cards sit 12 apart vertically. */
 export const gutter = 20;
 export const cardGap = 12;
+
+/**
+ * Geometry of the floating tab bar.
+ *
+ * Declared *after* `gutter` on purpose — it reads it. A `const` referenced
+ * above its own declaration is a temporal-dead-zone ReferenceError thrown while
+ * this module evaluates, which in an expo-router app surfaces as a route module
+ * coming back undefined, nowhere near the file that caused it.
+ *
+ * These are *design* values, not a guess at the platform's native bar — the
+ * distinction that matters, because a `tabBarHeight` constant used to live here
+ * for the opposite reason and was wrong on every device that disagreed with it.
+ * The bar is ours now: we state its height and react-navigation reports that
+ * same number back through `BottomTabBarHeightContext` (`getTabBarHeight`
+ * returns an explicit `height` verbatim).
+ *
+ * `lift` sits *above* the bottom safe-area inset, so on a gesture-nav phone the
+ * capsule clears the home indicator rather than sitting under it. Anything
+ * padding for the bar owes `safeArea.bottom + lift + height + clearance`;
+ * `useChromeInsets` is the one place that arithmetic is written down.
+ */
+export const floatingTabBar = {
+  height: 64,
+  /** Side margin. Matches the screen gutter so the capsule lines up with cards. */
+  inset: gutter,
+  /** Gap between the capsule and the top of the gesture area. */
+  lift: 10,
+  /** Breathing room between scrolled content and the capsule. */
+  clearance: 12,
+  /** Blur strength. Low enough that the scrim still does the contrast work. */
+  intensity: 60,
+} as const;
 
 export const radius = {
   sm: 8,

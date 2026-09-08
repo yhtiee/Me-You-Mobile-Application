@@ -303,3 +303,45 @@ export async function setCheckedOnPartner(userId: string, value: boolean): Promi
 
   if (error) throw toMessage(error, 'save that');
 }
+
+/**
+ * The couple's start date, for the banner counter and the settings field.
+ *
+ * A narrow read rather than reusing `fetchHomeSnapshot`, which joins both
+ * profiles and both of today's check-ins to answer a question about one column.
+ */
+export async function fetchTogetherSince(coupleId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('couples')
+    .select('together_since')
+    .eq('id', coupleId)
+    .maybeSingle();
+
+  if (error) throw toMessage(error, 'load your start date');
+
+  return (data as { together_since: string | null } | null)?.together_since ?? null;
+}
+
+/**
+ * Set — or clear — when the two of you started.
+ *
+ * `together_since` is a `date` and has been writable by either partner since
+ * 0007's "update own couple" policy, but nothing in the app has ever written
+ * it: it was set once by `create_couple()` and only if that call was given a
+ * value, which the onboarding flow never did. So every hub reads null and the
+ * banner has been showing "Just getting started" permanently.
+ *
+ * Takes an ISO date rather than a number of years, because the column is a date
+ * and the banner renders "2 years, 4 months" from it. Storing only a year count
+ * would round every couple to an anniversary they did not have and permanently
+ * downgrade that counter; `yearsAgoIso` converts in the one direction that is
+ * lossy, at the edge, where the user can see what it chose.
+ */
+export async function setTogetherSince(coupleId: string, iso: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('couples')
+    .update({ together_since: iso })
+    .eq('id', coupleId);
+
+  if (error) throw toMessage(error, 'save your start date');
+}

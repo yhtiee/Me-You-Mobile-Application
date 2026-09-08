@@ -178,3 +178,31 @@ export function monthGrid(monthIso: string): string[][] {
 export function isSameMonth(iso: string, monthIso: string): boolean {
   return iso.slice(0, 7) === monthIso.slice(0, 7);
 }
+
+/**
+ * The ISO date `years` whole years before today.
+ *
+ * The lossy half of the "how many years?" shortcut: someone who says "3 years"
+ * gets 3 years ago *today*, which is the only defensible reading of a number
+ * with no month in it. Anyone who wants the real day picks it instead — this
+ * exists so the quick answer is available, not so it is the only one.
+ */
+export function yearsAgoIso(years: number, now = new Date()): string {
+  const then = new Date(now.getFullYear() - years, now.getMonth(), now.getDate());
+  return todayIso(then);
+}
+
+/** Whole years between an ISO date and today. The inverse of `yearsAgoIso`. */
+export function yearsSince(isoDate: string, now = new Date()): number {
+  const start = parseIsoDate(isoDate);
+  let years = now.getFullYear() - start.getFullYear();
+
+  // Not yet this year's anniversary, so the last one was a year earlier.
+  const beforeAnniversary =
+    now.getMonth() < start.getMonth() ||
+    (now.getMonth() === start.getMonth() && now.getDate() < start.getDate());
+
+  if (beforeAnniversary) years -= 1;
+
+  return Math.max(0, years);
+}

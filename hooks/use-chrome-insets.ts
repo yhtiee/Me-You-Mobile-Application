@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTabBarInset } from '@/components/ui/tab-bar-inset';
+import { floatingTabBar } from '@/constants/tokens';
 
 /**
  * Bar height without the status bar, matching react-navigation's own defaults
@@ -37,7 +38,7 @@ export type ChromeInsets = {
  * `space.huge * 2.6` and friends, which is why they disagreed with each other
  * and with every device.
  *
- * `bottom` is manual for a different reason; see `useTabBarInset`.
+ * `bottom` comes from the tab bar's own reported height; see `useTabBarInset`.
  */
 export function useChromeInsets(): ChromeInsets {
   const safeArea = useSafeAreaInsets();
@@ -57,7 +58,24 @@ export function useChromeInsets(): ChromeInsets {
     // The header height already includes the status bar; a headerless route
     // still has to clear it on its own.
     top: headerHeight || safeArea.top,
-    bottom: tabBar + safeArea.bottom,
+    /*
+     * The floating capsule clears three things stacked on top of each other:
+     * the gesture area it is lifted above, the lift itself, and the bar. The
+     * `clearance` on top is so content stops short of the glass rather than
+     * sliding right up under its rim.
+     *
+     * `tabBar` is the bar's own reported height and nothing else — the capsule
+     * sets an explicit `height`, and `getTabBarHeight` returns an explicit
+     * height verbatim without adding the safe-area inset it would otherwise
+     * fold in. So the inset genuinely is ours to add here, and adding it is not
+     * the double-count it would be for a bottom-anchored bar.
+     *
+     * Off the tab tree — onboarding, the paywall, the dialogs — the height is 0
+     * and the safe-area inset is all there is.
+     */
+    bottom: tabBar
+      ? safeArea.bottom + floatingTabBar.lift + tabBar + floatingTabBar.clearance
+      : safeArea.bottom,
     headerHeight,
   };
 }

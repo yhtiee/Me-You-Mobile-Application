@@ -5,6 +5,7 @@ import { ScrollView, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
 import { MoodPicker } from '@/components/duo/mood-picker';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { SheetBody } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -18,6 +19,18 @@ import { palette, radius, space } from '@/constants/tokens';
 
 /** What an untouched check-in opens on. Steady, half a battery — not an opinion. */
 const DEFAULT_DRAFT = { mood: 'neutral' as MoodKey, battery: 50 };
+
+/**
+ * The six stops, as the segmented control wants them.
+ *
+ * Strings because `SegmentedControl` keys on a string union; the numbers go
+ * back through `Number()` on change. Module scope so the array identity is
+ * stable across renders.
+ */
+const BATTERY_STOPS = [10, 25, 50, 75, 90, 100].map((n) => ({
+  value: String(n),
+  label: String(n),
+}));
 
 /** Your own row, so the sheet is right if you saved it on your other device. */
 const CHECKIN_TABLES = ['check_ins'] as const;
@@ -104,14 +117,31 @@ export default function Checkin() {
            * tiles and the six battery buttons grow past any height we could
            * have picked, and without this the button goes back under the fold.
            */}
+          {/*
+           * `xxl` between the two blocks, `sm` inside them.
+           *
+           * Both used to sit on the same 16pt rhythm as everything else in the
+           * sheet, so the mood tiles, the battery label and the stepper read as
+           * one undifferentiated stack — the "clustered" look on a small
+           * iPhone. Making the gap between groups three times the gap within
+           * them is what turns it into two things instead of five.
+           */}
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={{ gap: space.lg, paddingBottom: space.xs }}
+            contentContainerStyle={{ gap: space.xxl, paddingBottom: space.xs }}
             showsVerticalScrollIndicator={false}
           >
-            <MoodPicker value={current.mood} onChange={(mood) => setDraft({ ...current, mood })} />
+            {/* Labelled to match the battery block below. The mood tiles used
+                to be the one unlabelled control in the sheet, which left the
+                two groups looking like different kinds of thing. */}
+            <View style={{ gap: space.sm }}>
+              <Text role="overline" color={theme.color.textTertiary}>
+                Mood
+              </Text>
+              <MoodPicker value={current.mood} onChange={(mood) => setDraft({ ...current, mood })} />
+            </View>
 
-            <View style={{ gap: space.md }}>
+            <View style={{ gap: space.sm }}>
               <View
                 style={{
                   flexDirection: 'row',
@@ -127,37 +157,26 @@ export default function Checkin() {
                 </Text>
               </View>
 
-              {/* Stepper rather than a slider: no extra dependency, and it stays
-                  usable with assistive tech and larger font scales. */}
-              <View style={{ flexDirection: 'row', gap: space.sm }}>
-                {[10, 25, 50, 75, 90, 100].map((value) => (
-                  <Button
-                    key={value}
-                    label={`${value}`}
-                    variant={current.battery === value ? 'primary' : 'neutral'}
-                    style={{ flex: 1, paddingHorizontal: 0 }}
-                    onPress={() => setDraft({ ...current, battery: value })}
-                  />
-                ))}
-              </View>
-
-              <View
-                style={{
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: theme.color.surfaceSunken,
-                  overflow: 'hidden',
-                }}
-              >
-                <View
-                  style={{
-                    width: `${current.battery}%`,
-                    height: '100%',
-                    borderRadius: 4,
-                    backgroundColor: moodColor,
-                  }}
-                />
-              </View>
+              {/*
+               * One track, not six buttons.
+               *
+               * These were six `Button`s at `flex: 1`. On a 375pt iPhone that
+               * is roughly 48pt each, and the selected one carried `primary`'s
+               * rose drop shadow — six pill CTAs shoulder to shoulder, each
+               * glowing. `Button` is the wrong primitive for a value picker:
+               * it is built to be the one thing you press on a screen.
+               *
+               * The segmented control reads as a single object with a position
+               * in it, which is what a battery level actually is. The separate
+               * progress bar that used to sit underneath is gone with it — the
+               * percentage was being drawn three times (numeral, stepper, bar)
+               * and two of those were saying the same thing twice.
+               */}
+              <SegmentedControl
+                options={BATTERY_STOPS}
+                value={String(current.battery)}
+                onChange={(value) => setDraft({ ...current, battery: Number(value) })}
+              />
             </View>
           </ScrollView>
 
@@ -203,34 +222,31 @@ export default function Checkin() {
  */
 function CheckinSkeleton() {
   return (
-    <>
-      <View style={{ flexDirection: 'row', gap: space.sm }}>
-        {[0, 1, 2, 3].map((i) => (
-          <View key={i} style={{ flex: 1 }}>
-            <Skeleton height={68} round={radius.md} />
-          </View>
-        ))}
+    <View style={{ gap: space.xxl }}>
+      <View style={{ gap: space.sm }}>
+        <Skeleton width={44} height={10} />
+        <View style={{ flexDirection: 'row', gap: space.sm }}>
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={{ flex: 1 }}>
+              <Skeleton height={68} round={radius.md} />
+            </View>
+          ))}
+        </View>
       </View>
 
-      <View style={{ gap: space.md }}>
+      <View style={{ gap: space.sm }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Skeleton width={64} height={10} />
           <Skeleton width={48} height={18} />
         </View>
-        <View style={{ flexDirection: 'row', gap: space.sm }}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <View key={i} style={{ flex: 1 }}>
-              <Skeleton height={48} round={radius.pill} />
-            </View>
-          ))}
-        </View>
-        <Skeleton height={8} round={4} />
+        {/* One track now, matching the control it stands in for. */}
+        <Skeleton height={48} round={radius.pill} />
       </View>
 
       <View style={{ gap: space.sm }}>
         <Skeleton height={50} round={radius.pill} />
         <Skeleton width="55%" height={12} />
       </View>
-    </>
+    </View>
   );
 }

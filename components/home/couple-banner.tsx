@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { StreakBadge } from '@/components/ui/streak-badge';
@@ -19,6 +19,8 @@ type Props = {
   togetherLabel: string | null;
   streak: number;
   onPressStreak: () => void;
+  /** Opens the place the start date is set. Only reachable while it is unset. */
+  onPressTogether: () => void;
 };
 
 /**
@@ -37,7 +39,14 @@ type Props = {
  * advertised an upload this build cannot do, and a dead affordance on the first
  * card of the first screen is worse than no affordance.
  */
-export function CoupleBanner({ you, partner, togetherLabel, streak, onPressStreak }: Props) {
+export function CoupleBanner({
+  you,
+  partner,
+  togetherLabel,
+  streak,
+  onPressStreak,
+  onPressTogether,
+}: Props) {
   return (
     <View style={heroShape}>
       <Glow />
@@ -54,9 +63,31 @@ export function CoupleBanner({ you, partner, togetherLabel, streak, onPressStrea
         <Text role="overline" color="rgba(255,255,255,0.75)">
           Together
         </Text>
-        <Text role="title2" color="#FFFFFF">
-          {togetherLabel ?? 'Just getting started'}
-        </Text>
+        {/*
+         * The empty state is a prompt, not a label.
+         *
+         * `together_since` has never been settable, so this read "Just getting
+         * started" for every couple forever and looked like a fact about them
+         * rather than a blank in the app. Now that Settings can fill it, the
+         * placeholder points at the field that does it.
+         */}
+        {togetherLabel ? (
+          <Text role="title2" color="#FFFFFF">
+            {togetherLabel}
+          </Text>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Set how long you have been together"
+            onPress={onPressTogether}
+            hitSlop={8}
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
+            <Text role="title2" color="#FFFFFF">
+              Add your start date ›
+            </Text>
+          </Pressable>
+        )}
         {partner ? (
           <Text role="caption" color="rgba(255,255,255,0.72)">
             {you.name} & {partner.name}

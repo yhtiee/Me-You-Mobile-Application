@@ -13,7 +13,11 @@ import {
   completeTriviaRound,
   deleteGrowthHabit,
   deleteWheelOption,
+  claimCoinSession,
+  endCoinSession,
   fetchCoinFlips,
+  fetchPlayActivity,
+  flipCoinSession,
   fetchDateIdeas,
   fetchGrowthHabits,
   fetchPickerQueue,
@@ -21,12 +25,12 @@ import {
   fetchPlayStats,
   fetchTriviaQuestions,
   fetchWheelOptions,
-  logCoinFlip,
   logWheelSpin,
   rateGrowthHabit,
   recordSwipe,
   recordTriviaAnswer,
   startTriviaRound,
+  type PlayActivity,
   type PlayPeople,
 } from '@/lib/play';
 import type {
@@ -64,6 +68,9 @@ const PEOPLE_TABLES = ['couple_members', 'profiles'] as const;
 const NO_QUESTIONS: TriviaQuestion[] = [];
 const NO_OPTIONS: WheelOption[] = [];
 const NO_FLIPS: CoinFlip[] = [];
+
+/** The session is shared, so the partner's flip has to reach this device. */
+const COIN_TABLES = ['coin_sessions'] as const;
 const NO_IDEAS: DateIdea[] = [];
 const NO_HABITS: GrowthHabit[] = [];
 const NO_EVENTS: CalendarEvent[] = [];
@@ -233,59 +240,112 @@ function plural(n: number, word: string) {
 // ---------------------------------------------------------------------------
 
 /** Coin flip. The result is decided here so the screen only animates it. */
+/**
+ * The coin, as a turn-based session shared by both phones.
+ *
+ * Two fetches rather than one, deliberately. The *session* is live state both
+ * devices watch (`coin_sessions`); the *history* is an append-only log only
+ * this device's tally reads. Folding them into one query would put the tally
+ * behind the realtime subscription and redraw five dots every time the partner
+ * opened the screen.
+ */
 export function useCoinGame() {
   const { user, coupleId } = useAuth();
   const { you, partner } = usePlayPeople();
   const toast = useToast();
   const userId = user?.id ?? null;
 
-  const load = useCallback(async () => {
+  // ---- History: the tally at the bottom. Not live; see above. ----
+  const loadHistory = useCallback(async () => {
     if (!userId) throw sessionError();
     return fetchCoinFlips(userId);
   }, [userId]);
 
-  const { data, error, loading, refetch, setData } = useAsyncData(
-    userId ? load : null,
-    // Deliberately not subscribed to `tool_events`: this is an append-only log
-    // the user writes themselves, and the flip is already on screen before the
-    // insert returns. A realtime round trip would only redraw what is there.
-    undefined
-  );
+  const {
+    data: historyData,
+    error: historyError,
+    loading,
+    refetch: refetchHistory,
+  } = useAsyncData(userId ? loadHistory : null, undefined);
 
-  const history = data ?? NO_FLIPS;
+  // ---- Session: live, shared, and the thing that decides whose turn it is. ----
+  const loadSession = useCallback(async () => {
+    if (!userId || !coupleId) throw sessionError();
+    // Claiming on open rather than on first tap is what makes both partners
+    // land on the same session: whoever arrives second joins the row the first
+    // one created instead of starting a rival argument.
+    return claimCoinSession(null);
+  }, [userId, coupleId]);
+
+  const {
+    data: session,
+    error: sessionErr,
+    refetch: refetchSession,
+    setData: setSession,
+  } = useAsyncData(userId && coupleId ? loadSession : null, COIN_TABLES);
+
+  const history = historyData ?? NO_FLIPS;
+
+  /** Whose turn. Null until the session lands, so the button can stay disabled. */
+  const isYourTurn = session ? session.flipperId === userId : null;
 
   /**
-   * Decide, then record.
+   * What the coin landed on, resolved against the reading user.
    *
-   * Returns synchronously so the animation can start on the same frame — the
-   * write is fire-and-forget behind it. A flip that fails to log is a lost row
-   * in a tally, not a lost outcome, so it must never block the coin.
+   * Derived from the session rather than from local state, so the partner —
+   * who never tapped anything — sees the same reveal the flipper does the
+   * moment the realtime update arrives.
    */
-  const flip = useCallback(
-    (stake: string | null): 'you' | 'partner' => {
-      const winner: 'you' | 'partner' = Math.random() < 0.5 ? 'you' : 'partner';
+  const settled: 'you' | 'partner' | null = session?.resultUserId
+    ? session.resultUserId === userId
+      ? 'you'
+      : 'partner'
+    : null;
 
-      if (userId && coupleId) {
-        const winnerUserId = winner === 'you' ? userId : (partner?.id ?? userId);
+  /**
+   * Flip, and wait for the server to say what it landed on.
+   *
+   * Async now, where the old version returned synchronously from a local
+   * `Math.random()`. That change is the point: two phones rolling their own die
+   * produced two different answers for one argument. The caller starts an
+   * indeterminate spin immediately and lands it when this resolves, so the coin
+   * still moves on the same frame as the tap.
+   */
+  const flip = useCallback(async (): Promise<'you' | 'partner' | null> => {
+    if (!session || !userId) return null;
 
-        // Optimistic, with the id the row will not have — this entry is
-        // replaced wholesale by the next fetch and nothing keys off it.
-        setData([
-          { id: `pending-${Date.now()}`, winner, createdAt: new Date().toISOString() },
-          ...history,
-        ]);
+    try {
+      const next = await flipCoinSession(session.id);
+      setSession(next);
+      // The flip wrote a `tool_events` row; the tally has to see it.
+      refetchHistory();
+      return next.resultUserId === userId ? 'you' : 'partner';
+    } catch (thrown) {
+      toast.error(thrown instanceof Error ? thrown.message : 'That flip didn’t land.');
+      // Re-read: "it is not your turn" means this device's copy is stale.
+      refetchSession();
+      return null;
+    }
+  }, [session, userId, setSession, refetchHistory, refetchSession, toast]);
 
-        void logCoinFlip({ userId, coupleId, winnerUserId, stake })
-          .then(() => refetch())
-          .catch((thrown: unknown) => {
-            setData(history);
-            toast.error(thrown instanceof Error ? thrown.message : 'That flip didn’t save.');
-          });
+  /** Close it and open the next one, so a new argument starts clean. */
+  const endSession = useCallback(
+    async (nextStake: string | null) => {
+      if (!session) return;
+
+      try {
+        await endCoinSession(session.id);
+        // Claim straight away rather than leaving the screen sessionless: the
+        // turn alternates on the way through, so the next flip is already
+        // assigned to the other person by the time anyone looks.
+        const next = await claimCoinSession(nextStake);
+        setSession(next);
+      } catch (thrown) {
+        toast.error(thrown instanceof Error ? thrown.message : 'Couldn’t close that.');
+        refetchSession();
       }
-
-      return winner;
     },
-    [userId, coupleId, partner?.id, history, setData, refetch, toast]
+    [session, setSession, refetchSession, toast]
   );
 
   const tally = useMemo(() => {
@@ -297,7 +357,25 @@ export function useCoinGame() {
     };
   }, [history]);
 
-  return { you, partner, flip, history, tally, loading, error, refetch };
+  return {
+    you,
+    partner,
+    session,
+    isYourTurn,
+    settled,
+    flip,
+    endSession,
+    history,
+    tally,
+    loading,
+    // The session error is the blocking one — without a session there is no
+    // game. A failed history read only costs the tally.
+    error: sessionErr ?? historyError,
+    refetch: () => {
+      refetchSession();
+      refetchHistory();
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -718,4 +796,51 @@ export function useGrowth() {
   );
 
   return { habits, rate, add, remove, loading, error, refetch };
+}
+
+// ---------------------------------------------------------------------------
+// Activity feed
+// ---------------------------------------------------------------------------
+
+/**
+ * Every table a game writes to. `tool_events` and `coin_sessions` joined the
+ * publication in 0018; without them the feed only moved when the screen was
+ * re-focused, which for a *shared* feed is the wrong half of the time.
+ */
+const ACTIVITY_TABLES = [
+  'tool_events',
+  'coin_sessions',
+  'trivia_rounds',
+  'picker_swipes',
+] as const;
+
+const NO_ACTIVITY: PlayActivity[] = [];
+
+/** Recent play across every game, for the summary on the Play hub. */
+export function usePlayActivity(limit = 12) {
+  const { user, coupleId } = useAuth();
+  const userId = user?.id ?? null;
+
+  const load = useCallback(async () => {
+    if (!coupleId) throw sessionError();
+    return fetchPlayActivity(limit);
+  }, [coupleId, limit]);
+
+  const { data, loading, error, refetch } = useAsyncData(
+    coupleId ? load : null,
+    ACTIVITY_TABLES
+  );
+
+  return {
+    items: data ?? NO_ACTIVITY,
+    /**
+     * Resolves an id to a name the reader understands. Lives here rather than
+     * in the component so "You" is decided in one place — the server cannot do
+     * it, because only this device knows who is holding it.
+     */
+    userId,
+    loading,
+    error,
+    refetch,
+  };
 }

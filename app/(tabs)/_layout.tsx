@@ -1,89 +1,129 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { BlurView } from 'expo-blur';
+import { Tabs } from 'expo-router/js-tabs';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TabBarInsetProvider } from '@/components/ui/tab-bar-inset';
 import { useTheme } from '@/components/providers/theme-provider';
-import { fontFamily, tabColors } from '@/constants/tokens';
-
-const { Trigger } = NativeTabs;
+import { fontFamily, floatingTabBar, icon, radius, tabColors } from '@/constants/tokens';
 
 /**
- * Four tabs: Home / Coach / Calendar / You.
+ * Four tabs: Home / Coach / Calendar / You, in a floating glass capsule.
  *
- * SDK 57 notes:
- * - `Icon`/`Label` are nested on the trigger (`NativeTabs.Trigger.Icon`), not
- *   standalone exports of `expo-router/unstable-native-tabs` — that move landed
- *   in SDK 55 and the old top-level exports are gone.
- * - Android icons stay vector-drawn: `src` takes a `Trigger.VectorIcon`
- *   element, which is the renamed `androidSrc`. There is an `md` prop now, but
- *   it resolves native Material symbols and so needs a custom build; the vector
- *   route keeps the app running in Expo Go.
- * - Native tabs apply content insets automatically as of SDK 57 (a bottom
- *   `SafeAreaView` on Android, `contentInsetAdjustmentBehavior` on the first
- *   nested scroll view on iOS). This app measures its own chrome instead — see
- *   `useChromeInsets` — so every trigger opts out; otherwise routes pay for the
- *   bar twice and the glass stops having anything to scroll under.
+ * A JS tab bar, not `NativeTabs`, and that is the whole point of this file.
+ *
+ * `NativeTabs` renders a real `UITabBar` on iOS and a Material 3
+ * `BottomNavigationView` on Android. The Android one applies its own elevation
+ * surface tint *on top of* whatever `backgroundColor` it is handed, and
+ * expo-router exposes no way to switch that off — `shadowColor` is documented
+ * `@platform iOS`, and neither expo-router's props nor react-native-screens'
+ * bottom-tabs types carry an elevation or tint knob. It also cannot float: the
+ * native bar is bolted to the bottom edge. Both of those are why this is JS.
+ *
+ * The capsule is `position: 'absolute'`, so the screen's background runs
+ * unbroken to the bottom of the phone and the bar sits over it. Nothing is
+ * bolted to the edge, so there is no seam to match — which is the more robust
+ * answer to "the bar is a different colour" than trying to match two opaque
+ * fills exactly.
+ *
+ * This reverses the choice locked in UI_IMPLEMENTATION_PLAN §0, which was made
+ * before the Android tint problem was known.
  */
 export default function TabLayout() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const glass = theme.scheme === 'dark' ? tabColors.dark : tabColors.light;
 
   return (
-    <TabBarInsetProvider>
-      <NativeTabs
-        tintColor={tabColors.active}
-        iconColor={{ default: tabColors.inactive, selected: tabColors.active }}
-        labelStyle={{ fontFamily: fontFamily.body.bold, fontSize: 10 }}
-        minimizeBehavior="onScrollDown"
-        // Frosted chrome. `blurEffect` is the iOS half; `backgroundColor` is a
-        // translucent tint layered over it there and the whole effect on
-        // Android, where Material 3's bottom nav has no blur to give. Both come
-        // from the theme — a light-tinted glass over a dark app reads as a
-        // white bar somebody forgot to style.
-        blurEffect={theme.tabBlur}
-        backgroundColor={theme.tabGlass}
-        shadowColor={tabColors.glassHairline}
-        rippleColor={tabColors.ripple}
-        // Without this the scroll-edge appearance is forced to fully
-        // transparent (see `createScrollEdgeAppearanceFromOptions`), so the
-        // glass would vanish whenever a screen sat at the top or bottom of its
-        // content — which is most of them.
-        disableTransparentOnScrollEdge
-      >
-        <Trigger name="(home)" disableAutomaticContentInsets>
-          <Trigger.Icon
-            sf={{ default: 'house', selected: 'house.fill' }}
-            src={<Trigger.VectorIcon family={MaterialIcons} name="home" />}
-          />
-          <Trigger.Label>Home</Trigger.Label>
-        </Trigger>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: tabColors.active,
+        tabBarInactiveTintColor: tabColors.inactive,
+        tabBarLabelStyle: { fontFamily: fontFamily.body.bold, fontSize: 10 },
+        // Transparent, because `tabBarBackground` paints the glass. A fill here
+        // would sit *over* the blur and defeat it.
+        tabBarStyle: {
+          position: 'absolute',
+          left: floatingTabBar.inset,
+          right: floatingTabBar.inset,
+          bottom: insets.bottom + floatingTabBar.lift,
+          height: floatingTabBar.height,
+          borderRadius: radius.pill,
+          borderCurve: 'continuous',
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
+          // Clips the blur to the capsule. Without it the BlurView paints a
+          // rectangle and the rounded corners show as square glass.
+          overflow: 'hidden',
+        },
+        tabBarBackground: () => (
+          <View style={StyleSheet.absoluteFill}>
+            <BlurView
+              tint={theme.scheme === 'dark' ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'}
+              intensity={floatingTabBar.intensity}
+              /*
+               * Android has no blur primitive of its own, so expo-blur renders
+               * a plain translucent view unless a method is named — which is
+               * exactly the "Android doesn't match iOS" gap. The Sdk31Plus
+               * variant is the one to use: it falls back to no blur on older
+               * Android rather than paying the documented performance cost
+               * there, so the effect degrades instead of dropping frames.
+               */
+              blurMethod="dimezisBlurViewSdk31Plus"
+              style={StyleSheet.absoluteFill}
+            />
+            {/* Contrast floor over the blur — see `tabColors`. */}
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: glass.scrim }]} />
+            {/* The capsule's rim. A border rather than a shadow so it survives
+                on a light background, where a shadow reads as nothing. */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  borderRadius: radius.pill,
+                  borderCurve: 'continuous',
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: glass.hairline,
+                },
+              ]}
+            />
+          </View>
+        ),
+      }}
+    >
+      <Tabs.Screen
+        name="(home)"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color }) => <MaterialIcons name="home" size={icon.md} color={color} />,
+        }}
+      />
 
-        <Trigger name="(coach)" disableAutomaticContentInsets>
-          <Trigger.Icon
-            sf={{
-              default: 'bubble.left.and.bubble.right',
-              selected: 'bubble.left.and.bubble.right.fill',
-            }}
-            src={<Trigger.VectorIcon family={MaterialIcons} name="forum" />}
-          />
-          <Trigger.Label>Coach</Trigger.Label>
-        </Trigger>
+      <Tabs.Screen
+        name="(coach)"
+        options={{
+          title: 'Coach',
+          tabBarIcon: ({ color }) => <MaterialIcons name="forum" size={icon.md} color={color} />,
+        }}
+      />
 
-        <Trigger name="(calendar)" disableAutomaticContentInsets>
-          <Trigger.Icon
-            sf={{ default: 'calendar', selected: 'calendar' }}
-            src={<Trigger.VectorIcon family={MaterialIcons} name="event" />}
-          />
-          <Trigger.Label>Calendar</Trigger.Label>
-        </Trigger>
+      <Tabs.Screen
+        name="(calendar)"
+        options={{
+          title: 'Calendar',
+          tabBarIcon: ({ color }) => <MaterialIcons name="event" size={icon.md} color={color} />,
+        }}
+      />
 
-        <Trigger name="(you)" disableAutomaticContentInsets>
-          <Trigger.Icon
-            sf={{ default: 'heart', selected: 'heart.fill' }}
-            src={<Trigger.VectorIcon family={MaterialIcons} name="favorite" />}
-          />
-          <Trigger.Label>You</Trigger.Label>
-        </Trigger>
-      </NativeTabs>
-    </TabBarInsetProvider>
+      <Tabs.Screen
+        name="(you)"
+        options={{
+          title: 'You',
+          tabBarIcon: ({ color }) => <MaterialIcons name="favorite" size={icon.md} color={color} />,
+        }}
+      />
+    </Tabs>
   );
 }

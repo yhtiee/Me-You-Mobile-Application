@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type {
   CoinFlip,
+  CoinSession,
   DateIdea,
   GrowthHabit,
   PickerCard,
@@ -150,6 +151,68 @@ export async function logCoinFlip(input: {
   });
 
   if (error) throw toMessage(error, 'save that flip');
+}
+
+/**
+ * Row shape of `public.coin_sessions`, as PostgREST returns it.
+ *
+ * Only the columns the client reads. `couple_id` and `ended_at` are on the
+ * table but never needed here: the RPC only ever hands back the couple's own
+ * open session, so both are constants from this side.
+ */
+type CoinSessionRow = {
+  id: string;
+  flipper_id: string;
+  stake: string | null;
+  result_user_id: string | null;
+  flipped_at: string | null;
+};
+
+function toSession(row: CoinSessionRow): CoinSession {
+  return {
+    id: row.id,
+    flipperId: row.flipper_id,
+    stake: row.stake,
+    resultUserId: row.result_user_id,
+    flippedAt: row.flipped_at,
+  };
+}
+
+/**
+ * The couple's open session, created on first call.
+ *
+ * Idempotent — see `claim_coin_session` in 0018. Both partners call this when
+ * the screen opens and both end up on the same row, including when they open it
+ * in the same second.
+ */
+export async function claimCoinSession(stake: string | null): Promise<CoinSession> {
+  const { data, error } = await supabase.rpc('claim_coin_session', { p_stake: stake });
+
+  if (error) throw toMessage(error, 'open a coin session');
+  if (!data) throw new Error('We couldn’t open a coin session.');
+
+  return toSession(data as CoinSessionRow);
+}
+
+/**
+ * Flip it. The outcome is chosen server-side so both phones read one answer —
+ * the old client-side `Math.random()` gave two devices two different results
+ * with nothing to reconcile them.
+ */
+export async function flipCoinSession(sessionId: string): Promise<CoinSession> {
+  const { data, error } = await supabase.rpc('flip_coin_session', { p_session_id: sessionId });
+
+  if (error) throw toMessage(error, 'flip the coin');
+  if (!data) throw new Error('We couldn’t flip the coin.');
+
+  return toSession(data as CoinSessionRow);
+}
+
+/** Close the session so the next argument gets its own. Either partner may. */
+export async function endCoinSession(sessionId: string): Promise<void> {
+  const { error } = await supabase.rpc('end_coin_session', { p_session_id: sessionId });
+
+  if (error) throw toMessage(error, 'close that session');
 }
 
 // ---------------------------------------------------------------------------
@@ -473,4 +536,56 @@ export async function rateGrowthHabit(habitId: string, rating: number): Promise<
 export async function deleteGrowthHabit(habitId: string): Promise<void> {
   const { error } = await supabase.from('growth_habits').delete().eq('id', habitId);
   if (error) throw toMessage(error, 'remove that');
+}
+
+// ---------------------------------------------------------------------------
+// Activity feed
+// ---------------------------------------------------------------------------
+
+/** One thing that happened, already merged and sorted by `play_activity()`. */
+export type PlayActivity = {
+  id: string;
+  kind: 'coin' | 'wheel' | 'trivia' | 'picker';
+  /** Who did it. Null for a picker match, which neither of you did alone. */
+  actorId: string | null;
+  /** Who it was about — the coin's winner, the trivia round's subject. */
+  subjectId: string | null;
+  /** The headline detail: the stake, the wedge, the score, the title. */
+  label: string | null;
+  detail: string | null;
+  occurredAt: string;
+};
+
+type PlayActivityRow = {
+  id_col: string;
+  kind_col: string;
+  actor_id_col: string | null;
+  subject_id_col: string | null;
+  label_col: string | null;
+  detail_col: string | null;
+  occurred_at_col: string;
+};
+
+/**
+ * Recent play, across every game, newest first.
+ *
+ * The union and the sort happen in Postgres — see `0019_play_activity.sql` —
+ * rather than here, because merging four differently-shaped result sets on the
+ * client means four round trips and a sort over data most of which gets thrown
+ * away by the limit.
+ */
+export async function fetchPlayActivity(limit = 12): Promise<PlayActivity[]> {
+  const { data, error } = await supabase.rpc('play_activity', { p_limit: limit });
+
+  if (error) throw toMessage(error, 'load your recent play');
+
+  return ((data ?? []) as PlayActivityRow[]).map((row) => ({
+    id: row.id_col,
+    kind: row.kind_col as PlayActivity['kind'],
+    actorId: row.actor_id_col,
+    subjectId: row.subject_id_col,
+    label: row.label_col,
+    detail: row.detail_col,
+    occurredAt: row.occurred_at_col,
+  }));
 }

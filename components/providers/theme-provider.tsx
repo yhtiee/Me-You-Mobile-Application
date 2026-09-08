@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, use, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { gradients, palette, playAccents, playTints, tabColors, tints } from '@/constants/tokens';
+import { gradients, palette, playAccents, playTints, tints } from '@/constants/tokens';
 
 export type ThemeScheme = 'light' | 'dark';
 
@@ -36,10 +36,6 @@ export type Theme = {
   mood: typeof palette.mood;
   /** Screen background wash, as a CSS gradient string. */
   wash: string;
-  /** Frosted tab-bar fill for this scheme. */
-  tabGlass: string;
-  /** iOS blur material name matching the scheme. */
-  tabBlur: 'systemChromeMaterialLight' | 'systemChromeMaterialDark';
 };
 
 type ThemeApi = {
@@ -64,8 +60,6 @@ function buildTheme(scheme: ThemeScheme): Theme {
     person: palette.person,
     mood: palette.mood,
     wash: dark ? gradients.washDark : gradients.wash,
-    tabGlass: (dark ? tabColors.glassDark : tabColors.glass) as string,
-    tabBlur: dark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight',
   };
 }
 

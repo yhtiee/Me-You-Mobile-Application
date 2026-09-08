@@ -59,6 +59,18 @@ const COUPLE_SCOPED = [
   'wheel_options',
   'date_ideas',
   'trivia_rounds',
+  /*
+   * The coin's turn state. Load-bearing rather than a nicety: the partner is
+   * shown "waiting for you to flip" and has tapped nothing, so the only thing
+   * that can turn their screen into the result is this subscription.
+   */
+  'coin_sessions',
+  /*
+   * Every game's append-only log. It was never in the publication at all, which
+   * is why nothing in Play has ever updated live — a spin, a flip or a match on
+   * one phone was invisible on the other until the tab was re-focused.
+   */
+  'tool_events',
 ] as const;
 
 /**

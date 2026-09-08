@@ -20,6 +20,12 @@ type Props = {
   onChangeTime?: (time: string | null) => void;
   /** Blocks earlier dates. Pass `todayIso()` for "can't plan the past". */
   minimumDate?: string;
+  /**
+   * Blocks later dates. Pass `todayIso()` for a date that can only be in the
+   * past — a relationship start date, a birthday. Without it the picker will
+   * happily offer 2049, and `durationSince` on a future date counts backwards.
+   */
+  maximumDate?: string;
   hint?: string;
 };
 
@@ -50,6 +56,7 @@ export function DateField({
   time,
   onChangeTime,
   minimumDate,
+  maximumDate,
   hint,
 }: Props) {
   const theme = useTheme();
@@ -68,6 +75,9 @@ export function DateField({
    */
   const asDate = value ? new Date(`${value}T12:00:00`) : new Date();
   const minimum = minimumDate ? new Date(`${minimumDate}T00:00:00`) : undefined;
+  // End of day, so the bound is inclusive — `T00:00:00` would exclude the
+  // maximum date itself on any picker that compares against the chosen time.
+  const maximum = maximumDate ? new Date(`${maximumDate}T23:59:59`) : undefined;
 
   const timeAsDate = (() => {
     const base = new Date(asDate);
@@ -153,6 +163,7 @@ export function DateField({
             mode="date"
             display={isIos ? 'inline' : 'default'}
             minimumDate={minimum}
+            maximumDate={maximum}
             onChange={handleDate}
             // Only affects the iOS inline calendar, which draws its own chrome
             // and otherwise inherits the system accent rather than the brand's.

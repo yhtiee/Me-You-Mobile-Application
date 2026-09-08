@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useNavigation } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, View } from 'react-native';
 import Animated, {
   Easing,
   runOnJS,
@@ -23,59 +24,154 @@ import { curve, gradients, motion, palette, radius, space } from '@/constants/to
 const SIZE = 176;
 
 /**
- * Argument settler (PRD Module 2).
+ * Argument settler (PRD Module 2), as a turn-based session.
  *
- * The outcome is decided before the animation starts and the spin merely
- * reveals it — same as the reference mock. Rotation runs on the UI thread so
- * the 60fps requirement holds without a JS-thread frame loop.
+ * What changed from the flat version, and why it had to:
  *
- * Two things the flat version was missing. First, a coin with no stated stake
- * is just a coin: the "what are we settling?" field turns an abstract result
- * into "Sarah goes first — taking the bins out", which is the sentence people
- * actually needed. Second, a tally, because the honest objection to a coin flip
- * is "you always win these" and the only answer to it is the record.
+ * The outcome used to be `Math.random()` on the device. Two phones rolling
+ * separately is two different answers to one argument, with nothing to
+ * reconcile them — for a game whose entire premise is "we will both accept
+ * what this says", that is the whole thing broken. The result now comes from
+ * `flip_coin_session`, so both phones read one row.
+ *
+ * There was also no notion of a turn, so "who flips" was whoever tapped first.
+ * The server assigns it by alternating from the last flip, which is a rule
+ * either partner can check.
+ *
+ * The spin still starts on the frame of the tap; it just does not know what it
+ * is landing on until a beat later. See `onFlip`.
  */
 export default function CoinTool() {
   const theme = useTheme();
-  const { you, partner, flip, history, tally, error, refetch } = useCoinGame();
+  const {
+    you,
+    partner,
+    session,
+    isYourTurn,
+    settled,
+    flip,
+    endSession,
+    history,
+    tally,
+    error,
+    refetch,
+  } = useCoinGame();
 
   // Every line on this screen names them. One fallback here beats six, and the
   // coin has to be flippable before the profiles have loaded.
   const partnerName = partner?.name ?? 'Your partner';
 
   const [stake, setStake] = useState('');
-  const [result, setResult] = useState<'you' | 'partner' | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [revision, setRevision] = useState(0);
 
   const angle = useSharedValue(0);
 
-  const settle = (winner: 'you' | 'partner') => {
+  /*
+   * The reveal is driven by the session, not by local state, so the partner —
+   * who tapped nothing — gets the same reveal the flipper does the moment the
+   * realtime update lands. `revision` bumps on a genuinely new result so the
+   * reveal animation replays rather than sitting there already finished.
+   */
+  const settledKey = session?.resultUserId ? `${session.id}:${session.resultUserId}` : null;
+  const seenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (settledKey && settledKey !== seenRef.current) setRevision((n) => n + 1);
+    seenRef.current = settledKey;
+  }, [settledKey]);
+
+  const stopSpin = useCallback(() => {
     setSpinning(false);
-    setResult(winner);
-    setRevision((n) => n + 1);
     if (process.env.EXPO_OS === 'ios') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-  };
+  }, []);
 
-  const onFlip = () => {
-    if (spinning) return;
-    const winner = flip(stake.trim() || null);
-    const spins = 5 + Math.floor(Math.random() * 2);
+  /**
+   * Spin first, land second.
+   *
+   * The outcome comes from the server now, so it is not known at the moment of
+   * the tap. Waiting for it before moving anything would put a visible dead
+   * beat between the press and the coin. Instead the coin starts an
+   * indeterminate spin on the same frame, and the result — when it arrives —
+   * retargets the animation onto the right face from wherever it has got to.
+   */
+  const onFlip = async () => {
+    if (spinning || !isYourTurn) return;
 
     setSpinning(true);
-    setResult(null);
+    // Linear, because this stretch is filler. Any easing here would read as the
+    // coin slowing onto a face it has not been given yet.
+    angle.value = withTiming(angle.value + 720, { duration: 700, easing: Easing.linear });
+
+    const winner = await flip();
+
+    if (!winner) {
+      setSpinning(false);
+      return;
+    }
+
+    // Land on the winner's face from wherever we are, always turning forwards.
+    const from = angle.value;
+    const face = winner === 'you' ? 0 : 180;
+    const delta = (((face - (from % 360)) % 360) + 360) % 360;
+
     angle.value = withTiming(
-      angle.value + spins * 360 + (winner === 'you' ? 0 : 180) - (angle.value % 360),
+      from + 1080 + delta,
       { duration: motion.coin.ms, easing: Easing.bezier(...curve.coin) },
       (finished) => {
-        if (finished) runOnJS(settle)(winner);
+        if (finished) runOnJS(stopSpin)();
       }
     );
   };
+
+  /**
+   * Ask before leaving.
+   *
+   * A session stays open until someone closes it, and an abandoned one blocks
+   * the next argument — the database allows exactly one open per couple. So
+   * leaving is the moment to ask, rather than hoping somebody remembers to come
+   * back and tidy up.
+   *
+   * Only asks once there is a result: a session nobody flipped is not a
+   * decision anyone made, so it is left for whoever opens the screen next
+   * instead of being turned into a question.
+   */
+  const navigation = useNavigation();
+  const endRef = useRef(endSession);
+  useEffect(() => {
+    endRef.current = endSession;
+  }, [endSession]);
+
+  const hasResult = settled !== null;
+  useEffect(() => {
+    if (!hasResult) return;
+
+    return navigation.addListener('beforeRemove', (event) => {
+      event.preventDefault();
+
+      Alert.alert(
+        'Settled?',
+        'Closing this passes the turn over, and the next thing you flip for starts fresh.',
+        [
+          {
+            text: 'Leave it open',
+            style: 'cancel',
+            onPress: () => navigation.dispatch(event.data.action),
+          },
+          {
+            text: 'Close it',
+            onPress: () => {
+              void endRef.current(null);
+              navigation.dispatch(event.data.action);
+            },
+          },
+        ]
+      );
+    });
+  }, [navigation, hasResult]);
 
   const frontStyle = useAnimatedStyle(() => ({
     transform: [{ perspective: 900 }, { rotateY: `${angle.value}deg` }],
@@ -84,24 +180,31 @@ export default function CoinTool() {
     transform: [{ perspective: 900 }, { rotateY: `${angle.value + 180}deg` }],
   }));
 
-  const trimmedStake = stake.trim();
-  const winnerName = result === 'you' ? 'You' : partnerName;
+  // The typed stake wins while you are typing; the session's is what the other
+  // person named it. Either way the reveal quotes one sentence, not two.
+  const sessionStake = (stake.trim() || session?.stake || '').trim();
+  const winnerName = settled === 'you' ? 'You' : partnerName;
 
   return (
     <Screen gap={space.xl}>
       <GameIntro game="coin" />
 
-      {/* Non-blocking. A failed history read costs the tally at the bottom of
-          the screen; the coin above it still works, so this must not take the
-          place of the game the way a full-screen error state would. */}
+      {/* Non-blocking. A failed read costs the tally at the bottom; the coin
+          above it still works, so this must not take the place of the game the
+          way a full-screen error state would. */}
       {error ? <ErrorState message={error} onRetry={refetch} /> : null}
+
+      <TurnBanner isYourTurn={isYourTurn} partnerName={partnerName} settled={hasResult} />
 
       <TextField
         label="What are we settling?"
         placeholder="Who takes the bins out…"
-        value={stake}
+        value={stake || session?.stake || ''}
         onChangeText={setStake}
         returnKeyType="done"
+        // Renaming the argument after the coin has answered it is rewriting
+        // history, and both phones are looking at the same row.
+        editable={!hasResult}
       />
 
       <View style={{ height: SIZE, alignItems: 'center', justifyContent: 'center' }}>
@@ -119,30 +222,51 @@ export default function CoinTool() {
         </Animated.View>
       </View>
 
-      {result ? (
+      {hasResult && !spinning ? (
         <ResultReveal
           game="coin"
           revision={revision}
-          kicker={trimmedStake ? trimmedStake : 'The coin says'}
+          kicker={sessionStake || 'The coin says'}
           result={`${winnerName} goes first`}
           note={
-            result === 'you'
+            settled === 'you'
               ? 'Being the bigger person costs nothing and buys a lot.'
               : `${partnerName} is up. Let them know.`
           }
         />
       ) : (
         <Text role="caption" center color={theme.color.textTertiary}>
-          {spinning ? 'Spinning…' : 'Tap below when you’re both ready.'}
+          {spinning
+            ? 'Spinning…'
+            : isYourTurn === false
+              ? `${partnerName} has this one.`
+              : 'Tap below when you’re both ready.'}
         </Text>
       )}
 
-      <Button
-        label={result ? 'Flip again' : 'Flip the coin'}
-        full
-        disabled={spinning}
-        onPress={onFlip}
-      />
+      {/*
+       * One button, and which job it has depends on the session rather than on
+       * anything this screen remembers. After a result it closes the session —
+       * which is also what passes the turn — so a pair who just settled
+       * something can go straight into the next thing.
+       */}
+      {hasResult ? (
+        <Button
+          label="Settle something else"
+          full
+          onPress={() => {
+            void endSession(stake.trim() || null);
+            setStake('');
+          }}
+        />
+      ) : (
+        <Button
+          label={isYourTurn === false ? `Waiting for ${partnerName}` : 'Flip the coin'}
+          full
+          disabled={spinning || !isYourTurn}
+          onPress={() => void onFlip()}
+        />
+      )}
 
       {tally.total > 0 ? (
         <View style={{ gap: space.md }}>
@@ -151,7 +275,7 @@ export default function CoinTool() {
           </Text>
 
           {/*
-           * A row of dots, oldest on the right. A bar chart of two numbers is a
+           * A row of dots, newest on the left. A bar chart of two numbers is a
            * chart in the pejorative sense; the dots answer "has it been fair?"
            * at a glance, which is the only question this data can support.
            */}
@@ -179,6 +303,55 @@ export default function CoinTool() {
         </View>
       ) : null}
     </Screen>
+  );
+}
+
+/**
+ * Whose turn it is, stated before the coin rather than discovered by tapping.
+ *
+ * The alternative — a disabled button — tells you that you cannot do something
+ * without telling you why, and "why" here is a rule the app invented and owes
+ * an explanation for.
+ *
+ * Renders nothing once there is a result: at that point the turn is spent and
+ * the reveal below is the thing to read.
+ */
+function TurnBanner({
+  isYourTurn,
+  partnerName,
+  settled,
+}: {
+  isYourTurn: boolean | null;
+  partnerName: string;
+  settled: boolean;
+}) {
+  const theme = useTheme();
+
+  // Null while the session is still loading — better to show nothing than to
+  // claim it is your turn and take it back a frame later.
+  if (settled || isYourTurn === null) return null;
+
+  const tint = isYourTurn ? theme.tint.rose : theme.tint.iris;
+
+  return (
+    <View
+      style={{
+        gap: space.xs,
+        padding: space.md,
+        borderRadius: radius.md,
+        borderCurve: 'continuous',
+        backgroundColor: tint.bg,
+      }}
+    >
+      <Text role="overline" color={tint.fg}>
+        {isYourTurn ? 'Your flip' : 'Their flip'}
+      </Text>
+      <Text role="caption" color={tint.muted}>
+        {isYourTurn
+          ? 'It alternates, so this one is on you.'
+          : `${partnerName} flipped last time — this one is theirs.`}
+      </Text>
+    </View>
   );
 }
 
