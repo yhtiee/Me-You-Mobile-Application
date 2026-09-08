@@ -105,22 +105,34 @@ export default function Coach() {
 
   const shellStyle = useAnimatedStyle(() => {
     /*
-     * iOS only adds the keyboard height. Android must not — and this was the bug.
+     * Both platforms add the keyboard height now. Android used to be excluded,
+     * and that exclusion is what left the composer under the keyboard.
      *
-     * `app.json` sets `softwareKeyboardLayoutMode: "resize"`, so Android already
-     * shrinks the window when the keyboard opens: the tab bar rides up on its
-     * own and the layout is handed a shorter viewport. Adding the keyboard
-     * height on top of that pushed the composer up by a *second* keyboard
-     * height — off the top of the visible area, with the tab bar left sitting
-     * where the input should have been. That is why the input looked covered by
-     * the nav bar, and why nothing down there could be tapped afterwards.
+     * The old reasoning was sound for the app as it then was: `app.json` asks
+     * for `softwareKeyboardLayoutMode: "resize"`, Android shrank the window, the
+     * layout got a shorter viewport, and adding the height on top of that lifted
+     * the composer by a *second* keyboard height.
      *
-     * iOS does not resize; the keyboard is an overlay, so there the height is
-     * exactly what has to be added. `chrome.bottom` remains the floor on both,
-     * because the tab bar still has to be cleared when the keyboard is closed.
+     * That stopped being true. Android 15 ignores `adjustResize` for a window
+     * drawing edge-to-edge — which is now every window, since Android 16 makes
+     * edge-to-edge mandatory — so the window keeps its full height and the
+     * keyboard simply covers the bottom of it. `hooks/use-keyboard-inset.ts` has
+     * documented exactly this for the `Screen` forms all along; this screen
+     * rolls its own scroll view and never got the same treatment.
+     *
+     * It was masked until recently: with `useAnimatedKeyboard` called with no
+     * options, Reanimated put the window back to fitting system windows while a
+     * keyboard subscription was alive, which restored the resize this code was
+     * relying on. Passing `isStatusBarTranslucentAndroid` / `isNavigationBarTranslucentAndroid`
+     * — needed to stop the system bars changing colour app-wide — removed that
+     * side effect and left nothing lifting the composer.
+     *
+     * `chrome.bottom` stays the floor: with the keyboard closed the composer
+     * still has to clear the tab bar. On Android the reported height already
+     * spans the translucent navigation bar, so `max` is the right combinator
+     * rather than a sum.
      */
-    const overlay = process.env.EXPO_OS === 'ios' ? keyboard.height.value : 0;
-    return { paddingBottom: Math.max(overlay, chrome.bottom) };
+    return { paddingBottom: Math.max(keyboard.height.value, chrome.bottom) };
   });
 
   const submit = async (text: string) => {

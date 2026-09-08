@@ -65,7 +65,7 @@ export type BucketListItem = {
 
 export type WikiEntry = {
   id: string;
-  category: 'favourites' | 'sizes' | 'dreams' | 'wishlist';
+  category: 'favourites' | 'personal' | 'sizes' | 'dreams' | 'wishlist';
   label: string;
   value: string;
   /** Wiki is cached for offline access (PRD §6). */
@@ -152,6 +152,11 @@ export type PickerCard = {
   kind: PickerKind;
   title: string;
   meta: string | null;
+  imageUrl?: string | null;
+  rating?: number | null;
+  year?: number | null;
+  genre?: string | null;
+  overview?: string | null;
 };
 
 /**
@@ -169,6 +174,10 @@ export type PickerMatch = {
   kind: PickerKind;
   title: string;
   meta: string | null;
+  imageUrl?: string | null;
+  rating?: number | null;
+  year?: number | null;
+  overview?: string | null;
   matchedAt: string;
 };
 

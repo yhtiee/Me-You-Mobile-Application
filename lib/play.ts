@@ -1,14 +1,14 @@
 import { supabase } from '@/lib/supabase';
 import type {
-  CoinFlip,
-  CoinSession,
-  DateIdea,
-  GrowthHabit,
-  PickerCard,
-  PickerMatch,
-  PlayStats,
-  TriviaQuestion,
-  WheelOption,
+    CoinFlip,
+    CoinSession,
+    DateIdea,
+    GrowthHabit,
+    PickerCard,
+    PickerMatch,
+    PlayStats,
+    TriviaQuestion,
+    WheelOption,
 } from '@/types/domain';
 
 /**
@@ -287,7 +287,180 @@ export async function logWheelSpin(input: {
  * what fits in a URL, and PostgREST puts filters in the query string. Reading
  * your own swipe ids first is cheap and bounded by how much you have played.
  */
-export async function fetchPickerQueue(): Promise<PickerCard[]> {
+/**
+ * Decks already fetched, per user and filter combination.
+ *
+ * `page` rides along with the cards because the TMDB pool is paginated and the
+ * next fetch for this filter has to resume where the last one stopped rather
+ * than re-requesting a page whose cards have all been swiped.
+ */
+type CachedDeck = { cards: PickerCard[]; page: number };
+
+const deckCache = new Map<string, CachedDeck>();
+
+/**
+ * How far to page forward looking for unswiped cards before giving up.
+ *
+ * The Edge Function filters out what you have already swiped, so a page you
+ * have worked through comes back empty rather than short. Five pages is ~100
+ * titles past wherever you are, which is more than anyone swipes in a sitting;
+ * beyond that the honest answer is the empty state.
+ */
+const MAX_PAGE_PROBES = 5;
+
+/** Decade id to inclusive year range, matching the Edge Function's own bounds. */
+const DECADE_RANGES: Record<string, [number, number] | undefined> = {
+  all: undefined,
+  '2020s': [2020, 2029],
+  '2010s': [2010, 2019],
+  '2000s': [2000, 2009],
+  '90s': [1990, 1999],
+};
+
+/**
+ * TMDB genre id to the label the Edge Function writes into `picker_items.genre`.
+ *
+ * Duplicated from `supabase/functions/movies/index.ts` rather than shared,
+ * because a Deno function and the app bundle have no module in common. Keep the
+ * two in step: drift here shows up only as a fallback deck that quietly ignores
+ * one genre.
+ */
+const MOVIE_GENRE_LABELS: Record<string, string> = {
+  '28': 'Action',
+  '12': 'Adventure',
+  '16': 'Animation',
+  '35': 'Comedy',
+  '80': 'Crime',
+  '99': 'Documentary',
+  '18': 'Drama',
+  '10751': 'Family',
+  '14': 'Fantasy',
+  '36': 'History',
+  '27': 'Horror',
+  '10402': 'Music',
+  '9648': 'Mystery',
+  '10749': 'Romance',
+  '878': 'Sci-Fi',
+  '10770': 'TV Movie',
+  '53': 'Thriller',
+  '10752': 'War',
+  '37': 'Western',
+};
+
+function deckKey(
+  userId: string | null,
+  filters?: { genre?: string | number | null; decade?: string | null; kind?: PickerCard['kind'] }
+): string {
+  // Keyed by user. Without it this module-scope map survives a sign-out and
+  // hands the next account the previous one's deck, including cards it has
+  // already swiped and rows its own RLS would never have returned.
+  return [
+    userId ?? 'anon',
+    filters?.kind ?? 'movie',
+    filters?.genre ?? 'trending',
+    filters?.decade ?? 'all',
+  ].join('_');
+}
+
+export function clearPickerCache(cacheKey?: string) {
+  if (cacheKey) {
+    deckCache.delete(cacheKey);
+  } else {
+    deckCache.clear();
+  }
+}
+
+/**
+ * Drop every cached deck belonging to one person.
+ *
+ * Called after a swipe. A cached deck is a snapshot of "what you had not swiped
+ * *at the time it was fetched*", so it goes stale the moment you swipe - and
+ * `useAsyncData` refetches on focus, which was quietly re-serving that stale
+ * snapshot. Leaving the screen and coming back therefore replayed cards that had
+ * already been decided on.
+ */
+export function clearPickerCacheForUser(userId: string | null) {
+  const prefix = (userId ?? 'anon') + '_';
+  for (const key of [...deckCache.keys()]) {
+    if (key.startsWith(prefix)) deckCache.delete(key);
+  }
+}
+
+export async function fetchPickerQueue(
+  filters?: {
+    genre?: string | number | null;
+    decade?: string | null;
+    kind?: PickerCard['kind'];
+  },
+  options?: { bypassCache?: boolean; userId?: string | null }
+): Promise<PickerCard[]> {
+  const userId = options?.userId ?? null;
+  const cacheKey = deckKey(userId, filters);
+  const cached = deckCache.get(cacheKey);
+
+  if (!options?.bypassCache && cached && cached.cards.length > 0) {
+    return cached.cards;
+  }
+
+  const isMovies = !filters?.kind || filters.kind === 'movie';
+
+  if (isMovies) {
+    /*
+     * Page forward until something comes back, and treat "empty" and "failed"
+     * as the different things they are.
+     *
+     * The old code sent no page at all, so every filter combination was
+     * permanently TMDB page 1 - about twenty titles. Worse, it tested
+     * `data.cards.length > 0` and fell through to the database on a *successful
+     * but empty* response, which is exactly what happens once you have swiped
+     * that page. So the deck silently changed source mid-session: twenty
+     * curated Horror titles, then an unfiltered grab-bag of every movie any user
+     * had ever pulled in. That is the inconsistency.
+     *
+     * Now an empty page means "you have seen these, show me the next one", and
+     * only a genuine error drops through to the local fallback.
+     */
+    let failed = false;
+
+    for (let probe = 0; probe < MAX_PAGE_PROBES; probe++) {
+      const page = (cached?.page ?? 1) + probe;
+
+      try {
+        const { data, error } = await supabase.functions.invoke<{ cards: PickerCard[] }>('movies', {
+          body: {
+            genre: filters?.genre ?? 'trending',
+            decade: filters?.decade && filters.decade !== 'all' ? filters.decade : null,
+            page,
+          },
+        });
+
+        if (error) {
+          failed = true;
+          break;
+        }
+
+        const cards = data?.cards ?? [];
+        if (cards.length > 0) {
+          deckCache.set(cacheKey, { cards, page });
+          return cards;
+        }
+        // Empty page: keep probing forward.
+      } catch (err) {
+        console.warn('Movies function call failed, falling back to database query:', err);
+        failed = true;
+        break;
+      }
+    }
+
+    // Ran out of pages rather than hitting an error: there genuinely is nothing
+    // left under this filter. Returning the local grab-bag here would be the old
+    // bug wearing a different hat.
+    if (!failed) {
+      deckCache.set(cacheKey, { cards: [], page: cached?.page ?? 1 });
+      return [];
+    }
+  }
+
   const { data: swiped, error: swipeError } = await supabase
     .from('picker_swipes')
     .select('item_id');
@@ -296,21 +469,55 @@ export async function fetchPickerQueue(): Promise<PickerCard[]> {
 
   const seen = new Set((swiped ?? []).map((row) => row.item_id as string));
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('picker_items')
-    .select('id, kind, title, meta')
-    .order('created_at', { ascending: true });
+    .select('id, kind, title, meta, image_url, rating, year, genre, overview')
+    .order('created_at', { ascending: false });
+
+  if (filters?.kind) {
+    query = query.eq('kind', filters.kind);
+  }
+
+  /*
+   * The fallback has to honour the same filters the chips claim to apply.
+   *
+   * It only ever filtered on `kind`, so the moment it took over, the Horror /
+   * 90s selection the user had made stopped meaning anything while the chips
+   * stayed lit. A filter that silently stops filtering is worse than one that
+   * returns nothing.
+   */
+  if (isMovies && filters?.genre && filters.genre !== 'trending' && filters.genre !== 'all') {
+    // The stored `genre` is TMDB's comma-joined label list ("Horror, Thriller")
+    // and the chip's id is numeric, so match on the label the row actually has.
+    const label = MOVIE_GENRE_LABELS[String(filters.genre)];
+    if (label) query = query.ilike('genre', '%' + label + '%');
+  }
+
+  const decadeRange = DECADE_RANGES[filters?.decade ?? 'all'];
+  if (decadeRange) {
+    query = query.gte('year', decadeRange[0]).lte('year', decadeRange[1]);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw toMessage(error, 'load your picks');
 
-  return (data ?? [])
+  const cards = (data ?? [])
     .filter((row) => !seen.has(row.id as string))
     .map((row) => ({
       id: row.id as string,
       kind: row.kind as PickerCard['kind'],
       title: row.title as string,
       meta: (row.meta as string | null) ?? null,
+      imageUrl: (row.image_url as string | null) ?? null,
+      rating: row.rating ? Number(row.rating) : null,
+      year: row.year ? Number(row.year) : null,
+      genre: (row.genre as string | null) ?? null,
+      overview: (row.overview as string | null) ?? null,
     }));
+
+  deckCache.set(cacheKey, { cards, page: cached?.page ?? 1 });
+  return cards;
 }
 
 /**
@@ -353,11 +560,25 @@ export async function fetchPickerMatches(): Promise<PickerMatch[]> {
   if (error) throw toMessage(error, 'load your matches');
 
   return (data ?? []).map(
-    (row: { item_id: string; kind: string; title: string; meta: string | null; matched_at: string }) => ({
+    (row: {
+      item_id: string;
+      kind: string;
+      title: string;
+      meta: string | null;
+      image_url: string | null;
+      rating: number | null;
+      year: number | null;
+      overview: string | null;
+      matched_at: string;
+    }) => ({
       itemId: row.item_id,
       kind: row.kind as PickerMatch['kind'],
       title: row.title,
       meta: row.meta,
+      imageUrl: row.image_url,
+      rating: row.rating ? Number(row.rating) : null,
+      year: row.year,
+      overview: row.overview,
       matchedAt: row.matched_at,
     })
   );
@@ -410,34 +631,133 @@ export async function addDateIdea(input: {
 // ---------------------------------------------------------------------------
 
 /** The question bank: stock rows plus anything the couple wrote. */
-export async function fetchTriviaQuestions(limit = 3): Promise<TriviaQuestion[]> {
-  const { data, error } = await supabase
-    .from('trivia_questions')
-    .select('id, question, options, correct_index');
-
-  if (error) throw toMessage(error, 'load the questions');
-
-  const all = (data ?? []).map((row) => ({
+/**
+ * Three questions for a round, about your partner.
+ *
+ * The subject filter is the correctness fix that authoring forces. This used to
+ * select the whole table, which was harmless only while every row was stock and
+ * about nobody. The moment couples write their own, an unfiltered read asks you
+ * questions *about yourself* — where the "correct" answer is one you supplied,
+ * so you either score full marks or discover the app thinks you are wrong about
+ * your own coffee order. Neither is the game.
+ *
+ * The couple's own questions come first and stock only tops up the shortfall,
+ * so a couple who have written four questions play theirs and never see the
+ * bank again. That ordering is the whole point of letting them write any.
+ */
+export async function fetchTriviaQuestions(
+  partnerId: string | null,
+  limit = 3
+): Promise<TriviaQuestion[]> {
+  const toQuestion = (row: Record<string, unknown>): TriviaQuestion => ({
     id: row.id as string,
     question: row.question as string,
     options: (row.options as string[]) ?? [],
     answer: row.correct_index as number,
-  }));
+  });
 
-  /*
-   * Shuffled on the client, then cut to `limit`.
-   *
-   * Postgres has no cheap random sample — `order by random()` sorts the whole
-   * table — and the bank is a few dozen rows that RLS has already scoped. Doing
-   * it here also means two rounds in a row are not the same three questions,
-   * which is the entire reason "Play again" exists.
-   */
-  for (let i = all.length - 1; i > 0; i--) {
+  // Written by the partner, about the partner. RLS already limits this to the
+  // caller's couple; the filter is about *whose* questions, not about access.
+  const mine = partnerId
+    ? await supabase
+        .from('trivia_questions')
+        .select('id, question, options, correct_index')
+        .not('couple_id', 'is', null)
+        .eq('subject_user_id', partnerId)
+    : null;
+
+  if (mine?.error) throw toMessage(mine.error, 'load your questions');
+
+  const own = shuffle((mine?.data ?? []).map(toQuestion));
+
+  if (own.length >= limit) return own.slice(0, limit);
+
+  // Top up from the bank. Stock rows are about nobody in particular, which is
+  // why they can stand in before a couple has written enough of their own.
+  const stock = await supabase
+    .from('trivia_questions')
+    .select('id, question, options, correct_index')
+    .is('couple_id', null);
+
+  if (stock.error) throw toMessage(stock.error, 'load the questions');
+
+  return [...own, ...shuffle((stock.data ?? []).map(toQuestion))].slice(0, limit);
+}
+
+/**
+ * Fisher-Yates, on the client.
+ *
+ * Postgres has no cheap random sample — `order by random()` sorts the whole
+ * relation — and the bank is a few dozen rows RLS has already scoped. Doing it
+ * here also means two rounds in a row are not the same three questions, which
+ * is the entire reason "Play again" exists.
+ */
+function shuffle<T>(list: T[]): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [all[i], all[j]] = [all[j], all[i]];
+    [out[i], out[j]] = [out[j], out[i]];
   }
+  return out;
+}
 
-  return all.slice(0, limit);
+/** One question this person has written about themselves, for the editor. */
+export type OwnTriviaQuestion = {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+};
+
+/** The questions you have set about yourself, newest first. */
+export async function fetchOwnTriviaQuestions(userId: string): Promise<OwnTriviaQuestion[]> {
+  const { data, error } = await supabase
+    .from('trivia_questions')
+    .select('id, question, options, correct_index')
+    .eq('subject_user_id', userId)
+    .not('couple_id', 'is', null)
+    .order('created_at', { ascending: false });
+
+  if (error) throw toMessage(error, 'load your questions');
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    question: row.question as string,
+    options: (row.options as string[]) ?? [],
+    correctIndex: row.correct_index as number,
+  }));
+}
+
+/**
+ * Write one about yourself.
+ *
+ * `subject_user_id` is the caller and not a parameter: the insert policy in
+ * 0021 requires it to be `auth.uid()`, and offering it as an argument would
+ * only let a caller construct a row the database is going to refuse.
+ */
+export async function addTriviaQuestion(input: {
+  coupleId: string;
+  userId: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+}): Promise<void> {
+  const { error } = await supabase.from('trivia_questions').insert({
+    couple_id: input.coupleId,
+    subject_user_id: input.userId,
+    question: input.question.trim(),
+    options: input.options.map((o) => o.trim()),
+    correct_index: input.correctIndex,
+  });
+
+  if (error) throw toMessage(error, 'save that question');
+}
+
+/** Remove one of your own. RLS refuses anything else, including stock rows. */
+export async function deleteTriviaQuestion(questionId: string): Promise<void> {
+  const { error } = await supabase.from('trivia_questions').delete().eq('id', questionId);
+
+  if (error) throw toMessage(error, 'delete that question');
 }
 
 export async function startTriviaRound(input: {

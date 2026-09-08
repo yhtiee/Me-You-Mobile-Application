@@ -67,19 +67,50 @@ export const LOVE_LANGUAGES: {
 ];
 
 export const WIKI_CATEGORY_LABELS: Record<WikiEntry['category'], string> = {
-  favourites: 'Favourites',
+  favourites: 'Favorites',
+  personal: 'Personal Information',
   sizes: 'Sizes',
-  dreams: 'Dreams',
+  dreams: 'Dreams & Goals',
   wishlist: 'Wishlist',
 };
 
 /** The cheat-sheet every couple starts with. Order is the render order. */
 export const WIKI_SLOTS: { category: WikiEntry['category']; label: string }[] = [
-  { category: 'favourites', label: 'Favourite food' },
-  { category: 'favourites', label: 'Favourite flowers' },
+  // Favorites
+  { category: 'favourites', label: 'Favorite food' },
+  { category: 'favourites', label: 'Favorite drink' },
+  { category: 'favourites', label: 'Favorite snack' },
+  { category: 'favourites', label: 'Favorite restaurant' },
+  { category: 'favourites', label: 'Favorite flower' },
+  { category: 'favourites', label: 'Favorite perfume/cologne' },
+  { category: 'favourites', label: 'Favorite color' },
+  { category: 'favourites', label: 'Favorite movie' },
+  { category: 'favourites', label: 'Favorite TV show' },
+  { category: 'favourites', label: 'Favorite artist' },
+  { category: 'favourites', label: 'Favorite song' },
+  { category: 'favourites', label: 'Favorite hobby' },
+
+  // Personal Information
+  { category: 'personal', label: 'Birthday' },
+  { category: 'personal', label: 'Zodiac sign' },
+  { category: 'personal', label: 'Blood group' },
+  { category: 'personal', label: 'Allergies' },
+  { category: 'personal', label: 'Emergency contact' },
+  { category: 'personal', label: 'Home town' },
+  { category: 'personal', label: 'Languages spoken' },
+
+  // Sizes
   { category: 'sizes', label: 'Ring size' },
   { category: 'sizes', label: 'Shoe size' },
   { category: 'sizes', label: 'Clothes size' },
+
+  // Dreams & Goals
   { category: 'dreams', label: 'Dream vacation' },
-  { category: 'wishlist', label: 'Birthday wishlist' },
+  { category: 'dreams', label: 'Dream house' },
+  { category: 'dreams', label: 'Dream car' },
+  { category: 'dreams', label: 'Career goals' },
+  { category: 'dreams', label: 'Bucket list' },
+  { category: 'dreams', label: 'Places to visit together' },
+  { category: 'dreams', label: 'Things to learn together' },
 ];
+

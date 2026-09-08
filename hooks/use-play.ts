@@ -2,34 +2,40 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/components/providers/auth-provider';
 import { useToast } from '@/components/providers/toast-provider';
-import { useAsyncData } from '@/hooks/use-async-data';
+import type { MovieDecadeFilter } from '@/constants/movies';
 import { PLAY_GAMES, gameOfTheDay, type PlayGame } from '@/constants/play';
 import type { PlayGameKey } from '@/constants/tokens';
-import { todayIso } from '@/utils/date';
+import { useAsyncData } from '@/hooks/use-async-data';
 import { addCalendarEvent, fetchUpcomingEvents } from '@/lib/calendar';
 import {
   addGrowthHabit,
+  addTriviaQuestion,
   addWheelOption,
+  claimCoinSession,
+  clearPickerCache,
+  clearPickerCacheForUser,
   completeTriviaRound,
   deleteGrowthHabit,
+  deleteTriviaQuestion,
   deleteWheelOption,
-  claimCoinSession,
   endCoinSession,
   fetchCoinFlips,
-  fetchPlayActivity,
-  flipCoinSession,
   fetchDateIdeas,
   fetchGrowthHabits,
+  fetchOwnTriviaQuestions,
   fetchPickerQueue,
+  fetchPlayActivity,
   fetchPlayPeople,
   fetchPlayStats,
   fetchTriviaQuestions,
   fetchWheelOptions,
+  flipCoinSession,
   logWheelSpin,
   rateGrowthHabit,
   recordSwipe,
   recordTriviaAnswer,
   startTriviaRound,
+  type OwnTriviaQuestion,
   type PlayActivity,
   type PlayPeople,
 } from '@/lib/play';
@@ -42,6 +48,7 @@ import type {
   TriviaQuestion,
   WheelOption,
 } from '@/types/domain';
+import { todayIso } from '@/utils/date';
 
 /**
  * The Play feature's data layer, as the screens see it.
@@ -59,7 +66,13 @@ import type {
 
 const STATS_TABLES = ['tool_events', 'picker_swipes', 'trivia_rounds', 'growth_habits'] as const;
 const WHEEL_TABLES = ['wheel_options'] as const;
-const PICKER_TABLES = ['picker_swipes'] as const;
+/*
+ * No `PICKER_TABLES`. The picker deliberately takes no subscription — a swipe
+ * deck has to stay frozen while it is being swiped, and refetching on each
+ * `picker_swipes` insert made the deck mutate under the user's thumb. Kept as a
+ * note rather than a constant so nobody wires one back in to "fix" the missing
+ * live updates; `usePicker` says the same thing at the call site.
+ */
 const DATE_TABLES = ['date_ideas'] as const;
 const GROWTH_TABLES = ['growth_habits'] as const;
 const EVENT_TABLES = ['calendar_events'] as const;
@@ -71,6 +84,9 @@ const NO_FLIPS: CoinFlip[] = [];
 
 /** The session is shared, so the partner's flip has to reach this device. */
 const COIN_TABLES = ['coin_sessions'] as const;
+
+/** Shared: one partner writes the questions the other plays against. */
+const TRIVIA_TABLES = ['trivia_questions'] as const;
 const NO_IDEAS: DateIdea[] = [];
 const NO_HABITS: GrowthHabit[] = [];
 const NO_EVENTS: CalendarEvent[] = [];
@@ -473,19 +489,46 @@ export function usePicker() {
   const userId = user?.id ?? null;
 
   const [index, setIndex] = useState(0);
+  const [kind, setKind] = useState<PickerCard['kind']>('movie');
+  const [genre, setGenre] = useState<string | number>('trending');
+  const [decade, setDecade] = useState<MovieDecadeFilter>('all');
 
   const load = useCallback(async () => {
     if (!userId || !coupleId) throw sessionError();
-    return fetchPickerQueue();
-  }, [userId, coupleId]);
+    // `userId` scopes the deck cache. Without it the module-scope map
+    // outlives a sign-out and hands the next account this one's deck.
+    return fetchPickerQueue({ kind, genre, decade }, { userId });
+  }, [userId, coupleId, kind, genre, decade]);
 
+  // Deliberately no table subscriptions here:
+  // A swipe deck must stay frozen in place while the user swipes through it.
+  // Re-fetching from realtime on each swipe caused the deck to mutate and jump.
   const { data, error, loading, refetch } = useAsyncData(
-    userId && coupleId ? load : null,
-    PICKER_TABLES
+    userId && coupleId ? load : null
   );
 
   const cards = useMemo(() => data ?? [], [data]);
   const card: PickerCard | null = cards[index] ?? null;
+
+  const canRewind = index > 0;
+  const rewind = useCallback(() => {
+    setIndex((i) => Math.max(0, i - 1));
+  }, []);
+
+  const changeKind = useCallback((newKind: PickerCard['kind']) => {
+    setKind(newKind);
+    setIndex(0);
+  }, []);
+
+  const changeGenre = useCallback((newGenre: string | number) => {
+    setGenre(newGenre);
+    setIndex(0);
+  }, []);
+
+  const changeDecade = useCallback((newDecade: MovieDecadeFilter) => {
+    setDecade(newDecade);
+    setIndex(0);
+  }, []);
 
   /**
    * Records the swipe and reports whether it completed a match.
@@ -500,6 +543,17 @@ export function usePicker() {
       setIndex((i) => i + 1);
 
       if (!current || !userId || !coupleId) return false;
+
+      /*
+       * The cached deck is now wrong.
+       *
+       * It is a snapshot of what had not been swiped when it was fetched, and
+       * `useAsyncData` refetches on focus — so without this, leaving the screen
+       * and coming back re-served the same array with this card still in it,
+       * from index 0. Dropping the cache costs one fetch on the way back in and
+       * is the difference between a deck that remembers and one that does not.
+       */
+      clearPickerCacheForUser(userId);
 
       try {
         return await recordSwipe({
@@ -525,6 +579,7 @@ export function usePicker() {
    * deck this correctly shows the empty state again.
    */
   const restart = useCallback(() => {
+    clearPickerCache();
     setIndex(0);
     refetch();
   }, [refetch]);
@@ -535,6 +590,14 @@ export function usePicker() {
     index,
     total: cards.length,
     remaining: Math.max(0, cards.length - index),
+    kind,
+    genre,
+    decade,
+    changeKind,
+    changeGenre,
+    changeDecade,
+    canRewind,
+    rewind,
     swipe,
     restart,
     loading,
@@ -625,10 +688,16 @@ export function useTrivia() {
     // `nonce` is the dependency that makes "Play again" fetch a fresh, freshly
     // shuffled set rather than replaying the three questions just answered.
     void nonce;
-    return fetchTriviaQuestions();
-  }, [userId, coupleId, nonce]);
+    // About the partner, never about the reader — see `fetchTriviaQuestions`.
+    return fetchTriviaQuestions(partner?.id ?? null);
+  }, [userId, coupleId, partner?.id, nonce]);
 
-  const { data, error, loading } = useAsyncData(userId && coupleId ? load : null);
+  // Live: a question the partner writes should be answerable here without a
+  // reload, the same way wheel options are.
+  const { data, error, loading } = useAsyncData(
+    userId && coupleId ? load : null,
+    TRIVIA_TABLES
+  );
 
   const questions = data ?? NO_QUESTIONS;
 
@@ -844,3 +913,64 @@ export function usePlayActivity(limit = 12) {
     refetch,
   };
 }
+
+/**
+ * The questions you have set about yourself.
+ *
+ * Separate from `useTrivia`, which plays a round against your *partner's*
+ * questions. The two never overlap by design — you cannot be quizzed on
+ * yourself — so sharing a hook would mean one fetch filtered two opposite ways
+ * depending on which screen was mounted.
+ */
+export function useOwnTriviaQuestions() {
+  const { user, coupleId } = useAuth();
+  const toast = useToast();
+  const userId = user?.id ?? null;
+
+  const load = useCallback(async () => {
+    if (!userId) throw sessionError();
+    return fetchOwnTriviaQuestions(userId);
+  }, [userId]);
+
+  const { data, loading, error, refetch } = useAsyncData(
+    userId ? load : null,
+    TRIVIA_TABLES
+  );
+
+  const add = useCallback(
+    async (question: string, options: string[], correctIndex: number) => {
+      if (!userId || !coupleId) {
+        toast.error('Your session ended. Log in again to continue.');
+        return false;
+      }
+
+      try {
+        await addTriviaQuestion({ coupleId, userId, question, options, correctIndex });
+        refetch();
+        return true;
+      } catch (thrown) {
+        toast.error(thrown instanceof Error ? thrown.message : 'Couldn’t save that.');
+        return false;
+      }
+    },
+    [userId, coupleId, refetch, toast]
+  );
+
+  const remove = useCallback(
+    async (questionId: string) => {
+      try {
+        await deleteTriviaQuestion(questionId);
+        refetch();
+      } catch (thrown) {
+        toast.error(thrown instanceof Error ? thrown.message : 'Couldn’t delete that.');
+      }
+    },
+    [refetch, toast]
+  );
+
+  const questions: OwnTriviaQuestion[] = data ?? NO_OWN_QUESTIONS;
+
+  return { questions, add, remove, loading, error, refetch };
+}
+
+const NO_OWN_QUESTIONS: OwnTriviaQuestion[] = [];

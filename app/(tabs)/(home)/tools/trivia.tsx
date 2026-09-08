@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, {
@@ -112,8 +113,14 @@ export default function TriviaTool() {
       <Screen gap={space.xl}>
         <GameIntro game="trivia" title="How well do you know them?" />
         <Text role="body" color={theme.color.textSecondary}>
-          No questions yet. Come back once you’ve both written a few.
+          Nothing to ask yet. Write a few about yourself and {partnerName} gets
+          quizzed on them.
         </Text>
+        <Button
+          label="Write your questions"
+          full
+          onPress={() => router.push('/tools/trivia-questions')}
+        />
       </Screen>
     );
   }
@@ -188,6 +195,20 @@ export default function TriviaTool() {
           <Button label="Play again" variant="secondary" full onPress={playAgain} />
         </>
       ) : null}
+
+      {/* Always reachable, not just from the empty state. The moment somebody
+          answers a stock question badly is exactly when they want to go and
+          write a real one. */}
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/tools/trivia-questions')}
+        hitSlop={6}
+        style={{ minHeight: layout.minTarget, justifyContent: 'center' }}
+      >
+        <Text role="caption" center color={theme.color.textSecondary}>
+          Set your own questions ›
+        </Text>
+      </Pressable>
     </Screen>
   );
 }

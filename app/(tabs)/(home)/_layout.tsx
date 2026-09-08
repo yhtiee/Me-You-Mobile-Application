@@ -24,6 +24,10 @@ export default function HomeStack() {
       {/* Titles come from the Play catalogue rather than being retyped here —
           the header and the tile you tapped to get to it were already drifting
           apart ("Games" vs "Games & growth"). */}
+      {/* Not a game, so it is not in the catalogue below — it is where the
+          trivia game's questions come from. */}
+      <Stack.Screen name="tools/trivia-questions" options={{ title: 'Your questions' }} />
+
       {PLAY_GAMES.map((game) => (
         <Stack.Screen
           key={game.key}

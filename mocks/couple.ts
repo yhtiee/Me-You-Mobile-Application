@@ -1,14 +1,12 @@
 import type {
-  BucketListItem,
-  CalendarEvent,
-  CheckinState,
-  CoachMessage,
-  Goal,
-  Level,
-  LoveLanguage,
-  Person,
-  Todo,
-  WikiEntry,
+    BucketListItem,
+    CheckinState,
+    Goal,
+    Level,
+    LoveLanguage,
+    Person,
+    Todo,
+    WikiEntry
 } from '@/types/domain';
 
 /**
@@ -90,13 +88,14 @@ export const bucketList: BucketListItem[] = [
 ];
 
 export const wiki: WikiEntry[] = [
-  { id: 'w1', category: 'favourites', label: 'Favourite food', value: 'Pad thai, extra lime', cachedOffline: true },
-  { id: 'w2', category: 'favourites', label: 'Favourite flowers', value: 'White peonies', cachedOffline: true },
-  { id: 'w3', category: 'sizes', label: 'Ring size', value: 'UK L / US 6', cachedOffline: true },
-  { id: 'w4', category: 'sizes', label: 'Shoe size', value: 'UK 5.5 / EU 38.5', cachedOffline: true },
-  { id: 'w5', category: 'sizes', label: 'Clothes size', value: 'Tops S, jeans 27', cachedOffline: true },
-  { id: 'w6', category: 'dreams', label: 'Dream vacation', value: 'Kyoto in cherry-blossom season', cachedOffline: true },
-  { id: 'w7', category: 'wishlist', label: 'Birthday wishlist', value: 'Film camera, that green scarf', cachedOffline: false },
+  { id: 'w1', category: 'favourites', label: 'Favorite food', value: 'Pad thai, extra lime', cachedOffline: true },
+  { id: 'w2', category: 'favourites', label: 'Favorite flower', value: 'White peonies', cachedOffline: true },
+  { id: 'w3', category: 'personal', label: 'Birthday', value: 'October 14', cachedOffline: true },
+  { id: 'w4', category: 'personal', label: 'Zodiac sign', value: 'Libra', cachedOffline: true },
+  { id: 'w5', category: 'sizes', label: 'Ring size', value: 'UK L / US 6', cachedOffline: true },
+  { id: 'w6', category: 'sizes', label: 'Shoe size', value: 'UK 5.5 / EU 38.5', cachedOffline: true },
+  { id: 'w7', category: 'sizes', label: 'Clothes size', value: 'Tops S, jeans 27', cachedOffline: true },
+  { id: 'w8', category: 'dreams', label: 'Dream vacation', value: 'Kyoto in cherry-blossom season', cachedOffline: true },
 ];
 
 /*

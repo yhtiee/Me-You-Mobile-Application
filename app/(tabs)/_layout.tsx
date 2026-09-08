@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router/js-tabs';
+import { getFocusedRouteNameFromRoute } from 'expo-router/react-navigation';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,28 +37,51 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: tabColors.active,
         tabBarInactiveTintColor: tabColors.inactive,
         tabBarLabelStyle: { fontFamily: fontFamily.body.bold, fontSize: 10 },
-        // Transparent, because `tabBarBackground` paints the glass. A fill here
-        // would sit *over* the blur and defeat it.
-        tabBarStyle: {
-          position: 'absolute',
-          left: floatingTabBar.inset,
-          right: floatingTabBar.inset,
-          bottom: insets.bottom + floatingTabBar.lift,
-          height: floatingTabBar.height,
-          borderRadius: radius.pill,
-          borderCurve: 'continuous',
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
-          elevation: 0,
-          // Clips the blur to the capsule. Without it the BlurView paints a
-          // rectangle and the rounded corners show as square glass.
-          overflow: 'hidden',
-        },
+        /*
+         * The capsule shows on a tab's own screen and nowhere else.
+         *
+         * A pushed screen — Us, Play, a tool, Settings — is somewhere you went
+         * *from* a tab, and it has its own back affordance in the header. A
+         * floating bar over it is a second, competing way out of a screen you
+         * arrived at linearly, and on a form it sits on top of the content.
+         *
+         * `getFocusedRouteNameFromRoute` returns undefined until the nested
+         * stack has pushed anything, which is exactly the case where we are on
+         * its initial route — hence the `?? 'index'`. Every tab's primary
+         * screen is named `index`, so one comparison covers all four.
+         *
+         * `height: 0` alongside `display: 'none'` is load-bearing, not
+         * belt-and-braces. `getTabBarHeight` returns an explicit `height`
+         * verbatim and publishes it through `BottomTabBarHeightContext`, which
+         * is what `useChromeInsets` pads against. Hiding the bar without
+         * zeroing the height would leave every secondary screen reserving
+         * ~86pt of empty space at the bottom for a bar that is not drawn.
+         */
+        tabBarStyle:
+          (getFocusedRouteNameFromRoute(route) ?? 'index') !== 'index'
+            ? { display: 'none', height: 0 }
+            : {
+                position: 'absolute',
+                left: floatingTabBar.inset,
+                right: floatingTabBar.inset,
+                bottom: insets.bottom + floatingTabBar.lift,
+                height: floatingTabBar.height,
+                borderRadius: radius.pill,
+                borderCurve: 'continuous',
+                // Transparent, because `tabBarBackground` paints the glass. A
+                // fill here would sit *over* the blur and defeat it.
+                backgroundColor: 'transparent',
+                borderTopWidth: 0,
+                elevation: 0,
+                // Clips the blur to the capsule. Without it the BlurView paints
+                // a rectangle and the rounded corners show as square glass.
+                overflow: 'hidden',
+              },
         tabBarBackground: () => (
           <View style={StyleSheet.absoluteFill}>
             <BlurView
@@ -91,7 +115,7 @@ export default function TabLayout() {
             />
           </View>
         ),
-      }}
+      })}
     >
       <Tabs.Screen
         name="(home)"

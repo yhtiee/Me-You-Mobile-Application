@@ -25,13 +25,18 @@ one before it has run.
 | `0013_event_time.sql` | Optional `calendar_events.event_time`, and the ordering index that goes with it. Idempotent |
 | `0014_reminders.sql` | `event_reminders` — lead times per event, shared by the couple. Idempotent |
 | `0015_coach.sql` | Gemini model default, server-assigned `seq`, `coach_attachments` + private bucket, `coach_quota()`. Idempotent |
+| `0022_wiki_personal_category.sql` | Wiki personal category & slot label normalization |
+| `0023_picker_movies_meta.sql` | Picker movies metadata, poster thumbnails & match details |
+| `0024_picker_items_external_id_constraint.sql` | Unique constraint on `picker_items.external_id` for TMDB upsert |
 
 ## Edge Functions
 
-`supabase/functions/coach` is the only server-side code in the project.
+- `coach`: The AI relationship coach powered by Gemini.
+- `movies`: Movie discovery & TMDB integration for the movie & meal picker.
 
 ```bash
 npx supabase functions deploy coach
+npx supabase functions deploy movies
 ```
 
 It needs `GEMINI_API_KEY` in the project's secrets; `SUPABASE_URL`,
