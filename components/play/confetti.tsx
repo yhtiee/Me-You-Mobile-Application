@@ -60,7 +60,7 @@ export function Confetti({ trigger, width, count = 12 }: Props) {
   return (
     <View
       pointerEvents="none"
-      style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]}
+      style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}
     >
       {pieces.map((piece, i) => (
         <Piece key={i} {...piece} trigger={trigger} />
@@ -85,20 +85,22 @@ function Piece({ trigger, color, left, size, drift, spin, delay, fall }: PiecePr
 
   useEffect(() => {
     if (trigger === 0) return;
-    progress.value = 0;
-    progress.value = withDelay(
-      delay,
-      withTiming(1, {
-        duration: motion.celebrate.ms,
-        // Fast out, slow in — the burst leaves quickly and the fall settles,
-        // which is what makes it read as thrown rather than dropped.
-        easing: Easing.out(Easing.quad),
-      })
+    progress.set(0);
+    progress.set(
+      withDelay(
+        delay,
+        withTiming(1, {
+          duration: motion.celebrate.ms,
+          // Fast out, slow in — the burst leaves quickly and the fall settles,
+          // which is what makes it read as thrown rather than dropped.
+          easing: Easing.out(Easing.quad),
+        })
+      )
     );
   }, [trigger, delay, progress]);
 
   const style = useAnimatedStyle(() => {
-    const p = progress.value;
+    const p = progress.get();
     return {
       // Held at zero before the first burst so twelve squares are not sitting
       // visible at the top of the card on mount.

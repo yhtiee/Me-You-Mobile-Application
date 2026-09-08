@@ -43,7 +43,7 @@ export function Button({
   const scale = useSharedValue(1);
   const isIos = process.env.EXPO_OS === 'ios';
 
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
 
   const spec = variantSpec(variant, theme);
   const isChip = variant === 'chip';
@@ -57,12 +57,12 @@ export function Button({
       onPress={onPress}
       onPressIn={() => {
         if (!isIos) return;
-        scale.value = withTiming(0.96, { duration: motion.tap.ms });
+        scale.set(withTiming(0.96, { duration: motion.tap.ms }));
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }}
       onPressOut={() => {
         if (!isIos) return;
-        scale.value = withTiming(1, { duration: motion.tap.ms });
+        scale.set(withTiming(1, { duration: motion.tap.ms }));
       }}
       android_ripple={{ color: 'rgba(34,26,43,0.12)', borderless: false }}
       style={[

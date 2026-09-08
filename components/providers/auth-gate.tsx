@@ -33,10 +33,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     // half-known state is what makes returning users flash past onboarding.
     if (status === 'restoring') return;
 
-    const group = segments[0];
+    // Typed routes narrow `useSegments()` to a union of route tuples, some of
+    // them a single segment long, so indexing past [0] no longer typechecks.
+    // The gate is deliberately generic over the whole tree — widen rather than
+    // enumerate every route in it.
+    const [group, second] = segments as readonly string[];
     const inOnboarding = group === '(onboarding)';
     // The group's index route reports no second segment.
-    const screen = segments[1] ?? 'index';
+    const screen = second ?? 'index';
 
     // The splash / intro screen (index) handles its own transition after animation and session load.
     if (inOnboarding && screen === 'index') return;

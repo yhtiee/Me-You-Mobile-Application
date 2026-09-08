@@ -1,22 +1,28 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Icon, Label, NativeTabs, VectorIcon } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { TabBarInsetProvider } from '@/components/ui/tab-bar-inset';
 import { useTheme } from '@/components/providers/theme-provider';
 import { fontFamily, tabColors } from '@/constants/tokens';
 
+const { Trigger } = NativeTabs;
+
 /**
  * Four tabs: Home / Coach / Calendar / You.
  *
- * SDK 54 notes:
- * - `Icon`/`Label` are standalone components, not `NativeTabs.Trigger.Icon`
- *   (that nesting arrived in SDK 55).
- * - There is no `md` prop yet, so Android icons go through `androidSrc` with a
- *   `VectorIcon` element rather than native drawables — which keeps the app
- *   running in Expo Go instead of requiring a custom build.
- * - The bar reports no content insets, so `TabBarInsetProvider` hands its height
- *   down to the screens instead. Content scrolls *under* the glass by design;
- *   `useChromeInsets` is what keeps anything from being stranded there.
+ * SDK 57 notes:
+ * - `Icon`/`Label` are nested on the trigger (`NativeTabs.Trigger.Icon`), not
+ *   standalone exports of `expo-router/unstable-native-tabs` — that move landed
+ *   in SDK 55 and the old top-level exports are gone.
+ * - Android icons stay vector-drawn: `src` takes a `Trigger.VectorIcon`
+ *   element, which is the renamed `androidSrc`. There is an `md` prop now, but
+ *   it resolves native Material symbols and so needs a custom build; the vector
+ *   route keeps the app running in Expo Go.
+ * - Native tabs apply content insets automatically as of SDK 57 (a bottom
+ *   `SafeAreaView` on Android, `contentInsetAdjustmentBehavior` on the first
+ *   nested scroll view on iOS). This app measures its own chrome instead — see
+ *   `useChromeInsets` — so every trigger opts out; otherwise routes pay for the
+ *   bar twice and the glass stops having anything to scroll under.
  */
 export default function TabLayout() {
   const theme = useTheme();
@@ -43,37 +49,40 @@ export default function TabLayout() {
         // content — which is most of them.
         disableTransparentOnScrollEdge
       >
-        <NativeTabs.Trigger name="(home)">
-          <Icon
+        <Trigger name="(home)" disableAutomaticContentInsets>
+          <Trigger.Icon
             sf={{ default: 'house', selected: 'house.fill' }}
-            androidSrc={<VectorIcon family={MaterialIcons} name="home" />}
+            src={<Trigger.VectorIcon family={MaterialIcons} name="home" />}
           />
-          <Label>Home</Label>
-        </NativeTabs.Trigger>
+          <Trigger.Label>Home</Trigger.Label>
+        </Trigger>
 
-        <NativeTabs.Trigger name="(coach)">
-          <Icon
-            sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }}
-            androidSrc={<VectorIcon family={MaterialIcons} name="forum" />}
+        <Trigger name="(coach)" disableAutomaticContentInsets>
+          <Trigger.Icon
+            sf={{
+              default: 'bubble.left.and.bubble.right',
+              selected: 'bubble.left.and.bubble.right.fill',
+            }}
+            src={<Trigger.VectorIcon family={MaterialIcons} name="forum" />}
           />
-          <Label>Coach</Label>
-        </NativeTabs.Trigger>
+          <Trigger.Label>Coach</Trigger.Label>
+        </Trigger>
 
-        <NativeTabs.Trigger name="(calendar)">
-          <Icon
+        <Trigger name="(calendar)" disableAutomaticContentInsets>
+          <Trigger.Icon
             sf={{ default: 'calendar', selected: 'calendar' }}
-            androidSrc={<VectorIcon family={MaterialIcons} name="event" />}
+            src={<Trigger.VectorIcon family={MaterialIcons} name="event" />}
           />
-          <Label>Calendar</Label>
-        </NativeTabs.Trigger>
+          <Trigger.Label>Calendar</Trigger.Label>
+        </Trigger>
 
-        <NativeTabs.Trigger name="(you)">
-          <Icon
+        <Trigger name="(you)" disableAutomaticContentInsets>
+          <Trigger.Icon
             sf={{ default: 'heart', selected: 'heart.fill' }}
-            androidSrc={<VectorIcon family={MaterialIcons} name="favorite" />}
+            src={<Trigger.VectorIcon family={MaterialIcons} name="favorite" />}
           />
-          <Label>You</Label>
-        </NativeTabs.Trigger>
+          <Trigger.Label>You</Trigger.Label>
+        </Trigger>
       </NativeTabs>
     </TabBarInsetProvider>
   );

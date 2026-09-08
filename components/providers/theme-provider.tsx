@@ -122,7 +122,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     void AsyncStorage.setItem(STORAGE_KEY, next);
   }, []);
 
-  const scheme: ThemeScheme = preference === 'system' ? (system ?? 'light') : preference;
+  // RN 0.86's `useColorScheme()` can report `'unspecified'` as well as null
+  // when the OS has not expressed a preference; both mean light.
+  const scheme: ThemeScheme =
+    preference === 'system' ? (system === 'dark' ? 'dark' : 'light') : preference;
 
   const toggle = useCallback(() => {
     setPreference(scheme === 'dark' ? 'light' : 'dark');

@@ -52,20 +52,22 @@ export function GameTile({ game, index, stat }: Props) {
   const enter = useSharedValue(0);
 
   useEffect(() => {
-    enter.value = withDelay(
-      index * motion.stagger.ms,
-      withTiming(1, { duration: motion.screen.ms, easing: Easing.out(Easing.cubic) })
+    enter.set(
+      withDelay(
+        index * motion.stagger.ms,
+        withTiming(1, { duration: motion.screen.ms, easing: Easing.out(Easing.cubic) })
+      )
     );
   }, [index, enter]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: enter.value,
+    opacity: enter.get(),
     transform: [
-      { scale: scale.value },
+      { scale: scale.get() },
       // Rises the last 14px into place. Paired with the fade so a tile never
       // slides in fully opaque, which reads as a layout shift rather than an
       // entrance.
-      { translateY: (1 - enter.value) * 14 },
+      { translateY: (1 - enter.get()) * 14 },
     ],
   }));
 
@@ -79,11 +81,11 @@ export function GameTile({ game, index, stat }: Props) {
       }}
       onPressIn={() => {
         if (!isIos) return;
-        scale.value = withTiming(0.96, { duration: motion.tap.ms });
+        scale.set(withTiming(0.96, { duration: motion.tap.ms }));
       }}
       onPressOut={() => {
         if (!isIos) return;
-        scale.value = withTiming(1, { duration: motion.tap.ms });
+        scale.set(withTiming(1, { duration: motion.tap.ms }));
       }}
       android_ripple={{ color: 'rgba(34,26,43,0.10)', borderless: false }}
       style={[

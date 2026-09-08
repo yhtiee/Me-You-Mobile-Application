@@ -50,19 +50,21 @@ export function PlayHero({ game, kicker }: Props) {
      * scroll view a user may be reading past. Anything faster or wider becomes
      * a thing you have to look away from.
      */
-    glyph.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: motion.idle.ms / 2, easing: Easing.inOut(Easing.quad) }),
-        withTiming(-1, { duration: motion.idle.ms / 2, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      true
+    glyph.set(
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: motion.idle.ms / 2, easing: Easing.inOut(Easing.quad) }),
+          withTiming(-1, { duration: motion.idle.ms / 2, easing: Easing.inOut(Easing.quad) })
+        ),
+        -1,
+        true
+      )
     );
   }, [glyph]);
 
-  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
   const glyphStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${glyph.value * 3}deg` }, { scale: 1 + Math.abs(glyph.value) * 0.03 }],
+    transform: [{ rotate: `${glyph.get() * 3}deg` }, { scale: 1 + Math.abs(glyph.get()) * 0.03 }],
   }));
 
   return (
@@ -75,11 +77,11 @@ export function PlayHero({ game, kicker }: Props) {
       }}
       onPressIn={() => {
         if (!isIos) return;
-        scale.value = withTiming(0.98, { duration: motion.tap.ms });
+        scale.set(withTiming(0.98, { duration: motion.tap.ms }));
       }}
       onPressOut={() => {
         if (!isIos) return;
-        scale.value = withTiming(1, { duration: motion.tap.ms });
+        scale.set(withTiming(1, { duration: motion.tap.ms }));
       }}
       style={[
         {

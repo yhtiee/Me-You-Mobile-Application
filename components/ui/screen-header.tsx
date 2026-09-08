@@ -1,8 +1,7 @@
-import { getHeaderTitle } from '@react-navigation/elements';
-import type { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, type NativeStackHeaderProps } from 'expo-router';
+import { getHeaderTitle } from 'expo-router/react-navigation';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -254,7 +253,7 @@ function CircleButton({
   const scale = useSharedValue(1);
   const isIos = process.env.EXPO_OS === 'ios';
 
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
 
   return (
     <AnimatedPressable
@@ -264,12 +263,12 @@ function CircleButton({
       hitSlop={(layout.minTarget - CIRCLE) / 2}
       onPressIn={() => {
         if (!isIos) return;
-        scale.value = withTiming(0.92, { duration: motion.tap.ms });
+        scale.set(withTiming(0.92, { duration: motion.tap.ms }));
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }}
       onPressOut={() => {
         if (!isIos) return;
-        scale.value = withTiming(1, { duration: motion.tap.ms });
+        scale.set(withTiming(1, { duration: motion.tap.ms }));
       }}
       android_ripple={{ color: 'rgba(34,26,43,0.12)', borderless: true, radius: CIRCLE / 2 }}
       style={[

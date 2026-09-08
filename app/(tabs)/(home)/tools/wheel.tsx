@@ -72,12 +72,12 @@ export default function WheelTool() {
    * spin would feel like a progress bar.
    */
   useAnimatedReaction(
-    () => angle.value,
+    () => angle.get(),
     (current) => {
       if (!spinning) return;
       const wedge = Math.floor((((-current % 360) + 360) % 360) / seg);
-      if (wedge !== lastWedge.value) {
-        lastWedge.value = wedge;
+      if (wedge !== lastWedge.get()) {
+        lastWedge.set(wedge);
         if (process.env.EXPO_OS === 'ios') runOnJS(tick)();
       }
     },
@@ -106,17 +106,19 @@ export default function WheelTool() {
 
     setSpinning(true);
     setResult(null);
-    lastWedge.value = -1;
-    angle.value = withTiming(
-      angle.value + target - (angle.value % 360),
-      { duration: motion.wheel.ms, easing: Easing.bezier(...curve.wheel) },
-      (finished) => {
-        if (finished) runOnJS(settle)(options[idx].label);
-      }
+    lastWedge.set(-1);
+    angle.set(
+      withTiming(
+        angle.get() + target - (angle.get() % 360),
+        { duration: motion.wheel.ms, easing: Easing.bezier(...curve.wheel) },
+        (finished) => {
+          if (finished) runOnJS(settle)(options[idx].label);
+        }
+      )
     );
   };
 
-  const wheelStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${angle.value}deg` }] }));
+  const wheelStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${angle.get()}deg` }] }));
 
   if (error) {
     return (
