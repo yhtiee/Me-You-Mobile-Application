@@ -48,3 +48,24 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Firebase service account keys — the FCM V1 credential.
+#
+# This is the file that actually grants authority to send push as this project,
+# so it never enters the repo: it is uploaded to EAS once (`eas credentials`)
+# and lives nowhere else. Globbed rather than named, because the filename
+# carries a per-key hash and the next one Firebase issues will not match a
+# literal entry. The previous line here was the exact filename *without* its
+# `.json` extension, so it matched nothing and the key was sitting untracked in
+# `git status`, one `git add .` from being published.
+*-firebase-adminsdk-*.json
+google-service-account*.json
+service-account*.json
+
+# NOT ignored, deliberately: `google-services.json`.
+#
+# It contains an `AIza…` Google API key, which is why secret scanners flag it,
+# but Firebase documents these as non-secrets — the key identifies the project
+# rather than authorising anything, and Security Rules plus App Check do the
+# actual protecting. It has to reach the build, so it stays tracked. Restrict it
+# to Firebase APIs in the Google Cloud console rather than hiding it.

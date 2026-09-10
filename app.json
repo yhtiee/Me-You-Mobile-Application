@@ -20,6 +20,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize"
     },
@@ -48,7 +49,15 @@
         }
       ],
       "expo-video",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#F0546F",
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

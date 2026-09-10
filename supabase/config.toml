@@ -1,0 +1,35 @@
+# Supabase CLI configuration.
+#
+# Only the settings this project actually needs. The CLI writes a much larger
+# default file on `supabase init`, almost all of which configures a local
+# development stack that is not used here — migrations are pushed straight to
+# the linked project and Edge Functions are deployed from source.
+
+project_id = "wurtdevxsbhytziesoxy"
+
+# ---------------------------------------------------------------------------
+# Edge Functions
+#
+# `verify_jwt` is per-function and *sticky on the server*: it is set at deploy
+# time and a later deploy without it does not reset it. `notify` was first
+# pushed with `--no-verify-jwt`, which left it callable by anyone on the
+# internet — and since it reads a recipient out of the request body and sends a
+# push to them, that is a spam endpoint with a Supabase URL. Declaring it here
+# makes the setting part of the repo rather than a property of whichever command
+# happened to deploy it last.
+# ---------------------------------------------------------------------------
+
+[functions.notify]
+# Required. The Database Webhook that invokes this sends the service role key,
+# so it authenticates; nothing else should be able to reach it.
+verify_jwt = true
+
+[functions.coach]
+# The app calls this directly with the user's session, and `claim_coach_question()`
+# inside it depends on `auth.uid()` being a real person.
+verify_jwt = true
+
+[functions.movies]
+# Called from the app with the user's session so it can filter out that user's
+# own swipes.
+verify_jwt = true

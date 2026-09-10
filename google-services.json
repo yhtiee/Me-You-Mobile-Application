@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "381753546413",
+    "project_id": "meandu-15b08",
+    "storage_bucket": "meandu-15b08.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:381753546413:android:eb017319aa862f0788d824",
+        "android_client_info": {
+          "package_name": "com.meyou.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDaR0vKlaFxikBZfim1rA1UtVL4EB6_Qpg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

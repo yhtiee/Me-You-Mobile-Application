@@ -1,5 +1,4 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { Switch, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
@@ -8,6 +7,7 @@ import { Screen } from '@/components/ui/screen';
 import { TogetherEditor } from '@/components/home/together-editor';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/components/providers/auth-provider';
+import { useNotificationPrefs } from '@/hooks/use-notification-prefs';
 import { usePremium } from '@/hooks/use-premium';
 import { useTheme } from '@/components/providers/theme-provider';
 import { palette, space } from '@/constants/tokens';
@@ -17,9 +17,7 @@ export default function Settings() {
   const theme = useTheme();
   const { signOut } = useAuth();
   const { isPremium } = usePremium();
-  const [streakAlerts, setStreakAlerts] = useState(true);
-  const [partnerAlerts, setPartnerAlerts] = useState(true);
-  const [countdownAlerts, setCountdownAlerts] = useState(true);
+  const { prefs, toggle } = useNotificationPrefs();
 
   return (
     <Screen gap={space.xl}>
@@ -51,36 +49,52 @@ export default function Settings() {
         <Text role="overline" color={theme.color.textTertiary}>
           Notifications
         </Text>
+        {/*
+          * Three categories, matching what the sender can actually tell apart.
+          *
+          * These used to read "Streak warnings" / "Partner check-ins" /
+          * "Countdowns" against three `useState` booleans that went nowhere.
+          * Streaks and countdowns are the same thing to `wants_notification()` —
+          * both are `reminder.*` — so offering them as separate switches would
+          * promise a distinction the system cannot honour. Play activity, which
+          * genuinely is its own category and is the noisiest of the three, had
+          * no switch at all.
+          *
+          * Only push obeys these. The in-app list still records everything:
+          * turning one off means "stop buzzing me", not "hide this from the
+          * screen I opened deliberately".
+          */}
         <Card padded={false} style={{ paddingHorizontal: space.lg }}>
           <ListRow
-            label="Streak warnings"
-            sublabel="Before midnight, if one of you hasn’t checked in"
-            right={
-              <Switch
-                value={streakAlerts}
-                onValueChange={setStreakAlerts}
-                trackColor={{ true: palette.brand.rose }}
-              />
-            }
-          />
-          <ListRow
             label="Partner check-ins"
+            sublabel="When they log how their day is going"
             right={
               <Switch
-                value={partnerAlerts}
-                onValueChange={setPartnerAlerts}
+                value={prefs.partnerCheckins}
+                onValueChange={() => void toggle('partnerCheckins')}
                 trackColor={{ true: palette.brand.rose }}
               />
             }
           />
           <ListRow
-            label="Countdowns"
-            sublabel="7, 3 and 1 day before"
+            label="Play activity"
+            sublabel="Flips, spins, quiz scores and matches"
+            right={
+              <Switch
+                value={prefs.playActivity}
+                onValueChange={() => void toggle('playActivity')}
+                trackColor={{ true: palette.brand.rose }}
+              />
+            }
+          />
+          <ListRow
+            label="Reminders"
+            sublabel="Streak warnings and date countdowns"
             last
             right={
               <Switch
-                value={countdownAlerts}
-                onValueChange={setCountdownAlerts}
+                value={prefs.reminders}
+                onValueChange={() => void toggle('reminders')}
                 trackColor={{ true: palette.brand.rose }}
               />
             }

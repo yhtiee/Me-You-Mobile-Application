@@ -41,13 +41,17 @@ import type { CalendarEvent } from '@/types/domain';
  * both), and the question we actually need answered is "does this load here?",
  * which the `try` answers directly and stays correct on runtimes that do not
  * exist yet.
+ *
+ * Exported because `lib/push.ts` needs the same guard and must not grow a second
+ * copy of it: two lazy requires means two chances for one of them to be a
+ * static import again.
  */
 type NotificationsModule = typeof import('expo-notifications');
 
 /** `undefined` = not yet attempted, `null` = attempted and unavailable. */
 let cached: NotificationsModule | null | undefined;
 
-function api(): NotificationsModule | null {
+export function notificationsApi(): NotificationsModule | null {
   // Metro caches a module that threw and re-throws on every later `require`,
   // so this must run at most once — hence caching the failure, not just the
   // success.
@@ -68,7 +72,7 @@ function api(): NotificationsModule | null {
  * considered. False in Expo Go on Android; use a development build.
  */
 export function isSupported(): boolean {
-  return api() !== null;
+  return notificationsApi() !== null;
 }
 
 /** All-day events fire at 9am rather than midnight, which nobody is awake for. */
@@ -85,7 +89,7 @@ const MAX_SCHEDULED = 48;
 let handlerConfigured = false;
 
 function configureHandler() {
-  const Notifications = api();
+  const Notifications = notificationsApi();
   if (!Notifications || handlerConfigured) return;
   handlerConfigured = true;
 
@@ -108,7 +112,7 @@ function configureHandler() {
  * reminder, at which point the prompt is obviously about the thing they just did.
  */
 export async function ensurePermission(): Promise<boolean> {
-  const Notifications = api();
+  const Notifications = notificationsApi();
   // Not an error the caller has to branch on: "we cannot ring on this device"
   // and "you said no" land in the same place, and `toggleReminder` already
   // saves the reminder and tells the user either way.
@@ -128,7 +132,7 @@ export async function ensurePermission(): Promise<boolean> {
 }
 
 export async function hasPermission(): Promise<boolean> {
-  const Notifications = api();
+  const Notifications = notificationsApi();
   if (!Notifications) return false;
 
   const status = await Notifications.getPermissionsAsync();
@@ -137,7 +141,7 @@ export async function hasPermission(): Promise<boolean> {
 
 /** Android puts notifications in channels; without one they arrive silently. */
 async function ensureChannel() {
-  const Notifications = api();
+  const Notifications = notificationsApi();
   if (!Notifications || Platform.OS !== 'android') return;
 
   await Notifications.setNotificationChannelAsync('calendar', {
@@ -186,7 +190,7 @@ function body(event: CalendarEvent, leadMinutes: number): string {
  * No-ops without permission, so callers can fire it unconditionally.
  */
 export async function sync(events: CalendarEvent[]): Promise<void> {
-  const Notifications = api();
+  const Notifications = notificationsApi();
   if (!Notifications) return;
 
   configureHandler();
@@ -230,7 +234,7 @@ export async function sync(events: CalendarEvent[]): Promise<void> {
 
 /** Drops every pending reminder. For sign-out and unpair. */
 export async function clearAll(): Promise<void> {
-  const Notifications = api();
+  const Notifications = notificationsApi();
   if (!Notifications) return;
 
   await Notifications.cancelAllScheduledNotificationsAsync();

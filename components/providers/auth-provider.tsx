@@ -1,6 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { registerForPush, unregisterForPush } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -153,6 +154,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
       setStatus(nextSession ? 'signed-in' : 'signed-out');
       void loadPairing(nextSession);
+
+      /*
+       * Register this device for push whenever a session appears.
+       *
+       * Here rather than on a screen, because the token has to be stored for a
+       * user who never opens Settings — and a notification you only receive
+       * after visiting the notification screen is not much of a notification.
+       *
+       * Fire-and-forget on purpose: `registerForPush` swallows its own failures
+       * and returns null when push is unavailable (Expo Go, a simulator, a
+       * declined prompt). None of those should hold up a sign-in, and none of
+       * them are worth telling the user about.
+       *
+       * `onAuthStateChange` also fires on silent token refreshes, so this runs
+       * more than once per session. That is fine and is why the write is an
+       * upsert keyed on the token: the repeat case changes nothing but
+       * `updated_at`.
+       */
+      if (nextSession?.user) void registerForPush(nextSession.user.id);
     });
 
     return () => {
@@ -213,6 +233,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    /*
+     * Drop the push token *before* the session goes.
+     *
+     * The delete is an authenticated write, so it has to happen while there is
+     * still a session to authorise it — and it has to happen at all, or the next
+     * notification for the account that just left is delivered to a phone now
+     * being used by someone else. Awaited rather than fired off, because
+     * `signOut()` immediately after would race it.
+     */
+    await unregisterForPush();
+
     await supabase.auth.signOut();
     setPairing('unknown');
     setCoupleId(null);
