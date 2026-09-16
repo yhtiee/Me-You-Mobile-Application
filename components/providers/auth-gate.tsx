@@ -6,6 +6,9 @@ import { useAuth } from '@/components/providers/auth-provider';
 /** Onboarding screens a signed-in user has already finished with. */
 const PRE_AUTH_SCREENS = new Set(['index', 'auth', 'login', 'walkthrough']);
 
+/** The celebration a newly linked couple sees before the app. */
+const PAIRED_SCREEN = 'paired';
+
 /**
  * Sends people where their session says they belong.
  *
@@ -51,7 +54,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
 
     if (pairing === 'paired') {
-      if (inOnboarding) router.replace('/(tabs)/(home)');
+      if (!inOnboarding || screen === PAIRED_SCREEN) return;
+      /*
+       * Someone who was mid-pairing just got linked — by their own code, or by
+       * their partner redeeming theirs while this screen was open (realtime
+       * refreshes pairing now). They get the "you're linked" moment first.
+       * Anyone arriving from login was already paired: straight to the app.
+       */
+      router.replace(PRE_AUTH_SCREENS.has(screen) ? '/(tabs)/(home)' : '/paired');
       return;
     }
 

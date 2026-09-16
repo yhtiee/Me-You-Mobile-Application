@@ -98,11 +98,119 @@ export function usingTestAds(): boolean {
 }
 
 /*
+ * The iOS tracking prompt, behind the same lazy guard as the ads SDK.
+ *
+ * `expo-tracking-transparency` is a native module; a build without it must
+ * degrade to "not asked" rather than take the ads path down with it.
+ */
+type TrackingModule = typeof import('expo-tracking-transparency');
+let trackingCached: TrackingModule | null | undefined;
+
+function trackingApi(): TrackingModule | null {
+  if (trackingCached !== undefined) return trackingCached;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    trackingCached = require('expo-tracking-transparency') as TrackingModule;
+  } catch {
+    trackingCached = null;
+  }
+  return trackingCached;
+}
+
+/**
+ * Asks iOS for tracking permission, once, and only when consent allows it.
+ *
+ * Google's order: consent first, then ATT — and only if GDPR doesn't apply or
+ * the person agreed to purpose 1 (store/access information on the device).
+ * Asking someone who just refused that would be asking twice for the same thing.
+ *
+ * Declining is fine. The SDK then serves ads without the IDFA; nothing in the
+ * app changes, which is what the permission string in `app.json` promises.
+ * Android has no equivalent prompt and the module reports "granted" there.
+ */
+async function requestTrackingIfAllowed(ads: AdsModule): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  const tracking = trackingApi();
+  if (!tracking?.isAvailable()) return;
+
+  try {
+    const gdprApplies = await ads.AdsConsent.getGdprApplies();
+    const purposeOne = gdprApplies ? (await ads.AdsConsent.getPurposeConsents()).startsWith('1') : true;
+    if (!purposeOne) return;
+
+    const current = await tracking.getTrackingPermissionsAsync();
+    if (current.status === 'undetermined') await tracking.requestTrackingPermissionsAsync();
+  } catch {
+    // A failed prompt is a declined prompt: ads still serve, just without IDFA.
+  }
+}
+
+/**
+ * Consent (Google's UMP), gathered before the SDK starts.
+ *
+ * `gatherConsent` refreshes the person's consent status every launch and shows
+ * the form only where a regulation requires it (UK, EEA, Switzerland, and the
+ * US states AdMob covers). Everywhere else it resolves immediately.
+ *
+ * Returns whether ads may be requested.
+ *
+ * - Production follows `canRequestAds`, including when gathering fails: Google
+ *   says to fall back to the status from the previous session, which is exactly
+ *   what that flag reports.
+ * - Test ads start regardless. The sample App IDs in `app.json` have no consent
+ *   message behind them, so the form always errors there; refusing test ads on
+ *   that basis would switch off the whole ads integration during development.
+ */
+async function gatherConsent(ads: AdsModule): Promise<boolean> {
+  try {
+    await ads.AdsConsent.gatherConsent();
+  } catch (thrown) {
+    if (!usingTestAds()) console.warn('Consent gathering failed; using the previous status.', thrown);
+  }
+
+  if (usingTestAds()) return true;
+
+  try {
+    const info = await ads.AdsConsent.getConsentInfo();
+    return info.canRequestAds;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether this person must be offered a way to change their consent.
+ *
+ * True only where a regulation requires it. The Settings row is shown on this,
+ * so people elsewhere don't get a control that opens nothing.
+ */
+export async function privacyOptionsRequired(): Promise<boolean> {
+  const ads = adsApi();
+  if (!ads) return false;
+  try {
+    const info = await ads.AdsConsent.getConsentInfo();
+    return info.privacyOptionsRequirementStatus === ads.AdsConsentPrivacyOptionsRequirementStatus.REQUIRED;
+  } catch {
+    return false;
+  }
+}
+
+/** Reopens Google's consent form. Resolves once it is dismissed. */
+export async function showPrivacyOptions(): Promise<void> {
+  const ads = adsApi();
+  if (!ads) return;
+  await ads.AdsConsent.showPrivacyOptionsForm();
+}
+
+/*
  * Initialise the SDK once per app launch.
  *
  * Memoised as a promise rather than a boolean so concurrent callers — two
  * banners mounting in the same frame — share one `initialize()` instead of
  * racing to start the SDK twice.
+ *
+ * Resolves `false` when ads must not be requested: no SDK, consent withheld,
+ * or start-up failed. Slots collapse in every one of those cases.
  */
 let initialising: Promise<boolean> | null = null;
 
@@ -126,9 +234,9 @@ export function initializeAds(): Promise<boolean> {
         tagForUnderAgeOfConsent: false,
       });
 
-      // Consent (UMP) and the iOS tracking prompt slot in here, before
-      // `initialize()`, when production ads are switched on. Test ads serve
-      // without either.
+      if (!(await gatherConsent(ads))) return false;
+      await requestTrackingIfAllowed(ads);
+
       await ads.default().initialize();
       return true;
     } catch (thrown) {

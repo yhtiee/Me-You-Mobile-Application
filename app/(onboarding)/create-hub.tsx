@@ -1,5 +1,4 @@
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Share, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -9,7 +8,6 @@ import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/components/providers/auth-provider';
-import { useCouple } from '@/components/providers/couple-provider';
 import { useTheme } from '@/components/providers/theme-provider';
 import { useToast } from '@/components/providers/toast-provider';
 import { createCouple } from '@/lib/pairing';
@@ -20,7 +18,6 @@ export default function CreateHub() {
   const theme = useTheme();
   const toast = useToast();
   const { refreshPairing, signOut } = useAuth();
-  const { pair } = useCouple();
   const [coupleCode, setCoupleCode] = useState<string | null>(null);
 
   /**
@@ -127,11 +124,16 @@ export default function CreateHub() {
             variant="secondary"
             full
             onPress={async () => {
-              pair();
               // The partner's redeem happens on their device, so this screen
-              // has to ask the server whether it actually landed.
-              await refreshPairing();
-              router.replace('/paired');
+              // has to ask the server whether it actually landed. Only a real
+              // join moves on — the auth gate takes a paired user to /paired —
+              // otherwise "you're linked" would show to someone still waiting.
+              const status = await refreshPairing();
+              if (status === 'unpaired') {
+                toast.show('Not yet — ask them to enter the code in their app.');
+              } else if (status === 'unknown') {
+                toast.error('Couldn’t check just now. Try again in a moment.');
+              }
             }}
           />
           <Button

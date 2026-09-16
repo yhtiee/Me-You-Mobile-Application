@@ -420,6 +420,11 @@ export default function PickerTool() {
       <Text role="caption" center color={theme.color.textTertiary}>
         {partner?.name ?? 'Your partner'} never sees the ones you pass on.
       </Text>
+
+      {/* TMDB's API terms require this notice wherever its data is shown. */}
+      <Text role="caption" center color={theme.color.textSecondary}>
+        Movie data from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.
+      </Text>
     </Screen>
   );
 }

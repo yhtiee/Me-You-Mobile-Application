@@ -33,3 +33,12 @@ verify_jwt = true
 # Called from the app with the user's session so it can filter out that user's
 # own swipes.
 verify_jwt = true
+
+[functions.delete-account]
+# Required. The account deleted is taken from this session and nowhere else,
+# so without a verified JWT there is no user to act on.
+verify_jwt = true
+
+[functions.leave-hub]
+# Required. The hub ended is the caller's own, read from this session.
+verify_jwt = true

@@ -68,7 +68,7 @@ type Props = {
 export function AdSlot({ show = true }: Props) {
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const { supported, ready, resolved, showAds } = useAds();
+  const { supported, ready, resolved, showAds, blocked } = useAds();
   const [failed, setFailed] = useState(false);
   const [height, setHeight] = useState(RESERVED);
 
@@ -76,6 +76,8 @@ export function AdSlot({ show = true }: Props) {
   if (!show) return null;
   if (resolved && !showAds) return null;
   if (failed) return null;
+  // Consent withheld or the SDK didn't start: no ad is coming, so no space either.
+  if (blocked) return null;
 
   const ads = adsApi();
 

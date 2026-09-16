@@ -1,6 +1,9 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 
+import { deleteAccountOnServer, leaveHubOnServer, type AccountActionResult } from '@/lib/account';
+import { clearAll as clearLocalReminders } from '@/lib/notifications';
 import { registerForPush, unregisterForPush } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
 
@@ -32,8 +35,20 @@ type AuthApi = {
   }) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
-  /** Re-reads pairing state. Call after create-hub or join-partner succeeds. */
-  refreshPairing: () => Promise<void>;
+  /**
+   * Permanently deletes the account and its data, then clears this device.
+   * Resolves `{ ok: false }` without signing out if the server refused, so the
+   * person can try again from where they were.
+   */
+  deleteAccount: () => Promise<AccountActionResult>;
+  /**
+   * Ends the hub for both people. On success pairing becomes `unpaired` and the
+   * gate moves this device to the pairing flow; the partner's app follows via
+   * realtime, push, or its next foreground.
+   */
+  unpair: () => Promise<AccountActionResult>;
+  /** Re-reads pairing state and returns it. Call after create-hub or join-partner succeeds. */
+  refreshPairing: () => Promise<PairingStatus>;
 };
 
 const AuthContext = createContext<AuthApi | null>(null);
@@ -85,11 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * rows, so the plain select returns exactly the same answer without spending
    * an RPC grant on it.
    */
-  const loadPairing = useCallback(async (activeSession: Session | null) => {
+  const loadPairing = useCallback(async (activeSession: Session | null): Promise<PairingStatus> => {
     if (!activeSession) {
       setPairing('unknown');
       setCoupleId(null);
-      return;
+      return 'unknown';
     }
 
     const { data: myMember, error: myError } = await supabase
@@ -104,13 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // which is the right response to a network blip. Forcing 'unpaired' here
       // would drop a paired couple back into the pairing flow.
       setPairing('unknown');
-      return;
+      return 'unknown';
     }
 
     if (!myMember?.couple_id) {
       setCoupleId(null);
       setPairing('unpaired');
-      return;
+      return 'unpaired';
     }
 
     setCoupleId(myMember.couple_id);
@@ -127,10 +142,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (partnerError) {
       setPairing('unknown');
-      return;
+      return 'unknown';
     }
 
-    setPairing(partnerMember ? 'paired' : 'unpaired');
+    const next: PairingStatus = partnerMember ? 'paired' : 'unpaired';
+    setPairing(next);
+    return next;
   }, []);
 
   useEffect(() => {
@@ -249,10 +266,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCoupleId(null);
   }, []);
 
-  const refreshPairing = useCallback(async () => {
+  const deleteAccount = useCallback(async (): Promise<AccountActionResult> => {
+    const result = await deleteAccountOnServer();
+    if (!result.ok) return result;
+
+    /*
+     * The server has already removed the push token rows with the account, so
+     * there is nothing to unregister — and no session left that could. What is
+     * left is on this device: reminders scheduled for events that no longer
+     * exist, and a stored session for a user who no longer exists.
+     *
+     * `scope: 'local'` because a global sign-out is a server call on behalf of
+     * a deleted user, which fails and would leave the stored session behind.
+     */
+    await clearLocalReminders().catch(() => {});
+    await supabase.auth.signOut({ scope: 'local' });
+    setPairing('unknown');
+    setCoupleId(null);
+    return result;
+  }, []);
+
+  const refreshPairing = useCallback(async (): Promise<PairingStatus> => {
     const { data } = await supabase.auth.getSession();
-    await loadPairing(data.session);
+    return loadPairing(data.session);
   }, [loadPairing]);
+
+  const unpair = useCallback(async (): Promise<AccountActionResult> => {
+    const result = await leaveHubOnServer();
+    if (!result.ok) return result;
+
+    // Reminders were for the hub's calendar, which no longer exists.
+    await clearLocalReminders().catch(() => {});
+    await refreshPairing();
+    return result;
+  }, [refreshPairing]);
+
+  /*
+   * Re-check pairing whenever the app comes back to the foreground.
+   *
+   * The partner can end the hub while this phone is asleep. Realtime and the
+   * push cover an open app and a closed one; this covers the gap between, and
+   * any event a sleeping socket missed. One cheap query per foreground.
+   */
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && status === 'signed-in') void refreshPairing();
+    });
+    return () => sub.remove();
+  }, [status, refreshPairing]);
 
   const api = useMemo<AuthApi>(
     () => ({
@@ -264,9 +325,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signIn,
       signOut,
+      deleteAccount,
+      unpair,
       refreshPairing,
     }),
-    [status, session, pairing, coupleId, signUp, signIn, signOut, refreshPairing]
+    [status, session, pairing, coupleId, signUp, signIn, signOut, deleteAccount, unpair, refreshPairing]
   );
 
   return <AuthContext value={api}>{children}</AuthContext>;

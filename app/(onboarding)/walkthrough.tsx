@@ -30,7 +30,7 @@ const PAGES: Page[] = [
   {
     illustration: require('@/assets/images/never-forget-details-asset.png'),
     title: 'Never forget the details',
-    body: 'Ring size, favourite flowers, the dream trip. Kept in one place, and there even when the signal isn’t.',
+    body: 'Ring size, favourite flowers, the dream trip. Kept in one place, for the two of you.',
   },
 ];
 

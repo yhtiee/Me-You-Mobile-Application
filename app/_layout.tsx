@@ -219,6 +219,7 @@ function RootNavigator() {
               <Stack.Screen name="match" options={dialogOptions} />
               <Stack.Screen name="limit" options={dialogOptions} />
               <Stack.Screen name="unpair" options={dialogOptions} />
+              <Stack.Screen name="delete-account" options={dialogOptions} />
 
       {/* The bell's destination. Pushed from any tab, so it lives out here and
           opts back into the shared header — the root stack hides headers by

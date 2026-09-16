@@ -8,7 +8,6 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
 import { useAuth } from '@/components/providers/auth-provider';
-import { useCouple } from '@/components/providers/couple-provider';
 import { useLoader } from '@/components/providers/loader-provider';
 import { useTheme } from '@/components/providers/theme-provider';
 import { useToast } from '@/components/providers/toast-provider';
@@ -23,7 +22,6 @@ export default function JoinPartner() {
   const toast = useToast();
   const loader = useLoader();
   const { refreshPairing } = useAuth();
-  const { pair } = useCouple();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -47,8 +45,6 @@ export default function JoinPartner() {
         return;
       }
 
-      // Keep the mock store in step until CoupleProvider is wired to the API.
-      pair();
       // Refresh before navigating: `AuthGate` routes off pairing state, and a
       // stale 'unpaired' here would bounce us straight back to /pair.
       await refreshPairing();

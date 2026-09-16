@@ -92,7 +92,7 @@ const USER_SCOPED = ['todos', 'growth_habits', 'picker_swipes', 'coach_usage'] a
 const RLS_SCOPED = ['profiles', 'love_languages'] as const;
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
-  const { coupleId, user } = useAuth();
+  const { coupleId, user, refreshPairing } = useAuth();
   const userId = user?.id ?? null;
 
   /*
@@ -152,6 +152,25 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    /*
+     * Membership is what pairing is made of. A partner joining, or the hub
+     * ending, changes it — and pairing lives in `AuthProvider`, which has no
+     * other way to hear about it.
+     *
+     * `hub-ended` is broadcast by the `leave-hub` function *before* it deletes
+     * the hub, because the delete cascades rows this channel can no longer see:
+     * Realtime doesn't forward deletes through a filter, and the partner loses
+     * read access to the membership rows at the same moment.
+     */
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'couple_members', filter: `couple_id=eq.${coupleId}` },
+      () => void refreshPairing()
+    );
+    channel.on('broadcast', { event: 'hub-ended' }, () => {
+      void refreshPairing();
+    });
+
     channel.subscribe((status) => {
       // Deliberately quiet on success. `CHANNEL_ERROR` almost always means the
       // table is not in the `supabase_realtime` publication — see migration
@@ -164,7 +183,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [coupleId, userId]);
+  }, [coupleId, userId, refreshPairing]);
 
   return <RealtimeContext value={subscribe}>{children}</RealtimeContext>;
 }

@@ -61,10 +61,9 @@ export type CoupleStore = {
   isPremium: boolean;
   upgrade: () => void;
 
-  // pairing
-  isPaired: boolean;
-  pair: () => void;
-  unpair: () => void;
+  // Pairing is not here. It is real state, owned by `AuthProvider` (`pairing`,
+  // `unpair()`); the mock flag that used to live here only ever changed this
+  // device's memory.
 };
 
 const CoupleContext = createContext<CoupleStore | null>(null);
@@ -83,7 +82,6 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
   const [bucketList, setBucketList] = useState<BucketListItem[]>(seed.bucketList);
   const [wiki, setWiki] = useState<WikiEntry[]>(seed.wiki);
   const [isPremium, setIsPremium] = useState(false);
-  const [isPaired, setIsPaired] = useState(false);
 
   const store: CoupleStore = {
     you: seed.you,
@@ -127,10 +125,6 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
 
     isPremium,
     upgrade: () => setIsPremium(true),
-
-    isPaired,
-    pair: () => setIsPaired(true),
-    unpair: () => setIsPaired(false),
   };
 
   return <CoupleContext value={store}>{children}</CoupleContext>;
