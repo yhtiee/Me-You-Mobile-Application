@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { useCouple } from '@/components/providers/couple-provider';
+import { partnerNameInSentence, useCouplePeople } from '@/hooks/use-couple-people';
 import { useTheme } from '@/components/providers/theme-provider';
 import { gutter, palette, radius, space } from '@/constants/tokens';
 
@@ -14,7 +14,10 @@ import { gutter, palette, radius, space } from '@/constants/tokens';
 export default function Paired() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { partner } = useCouple();
+  // The partner who just redeemed the code, by their real name. This read
+  // "Sarah" for everyone — the mock provider's placeholder — on the one screen
+  // whose entire job is to confirm who you are now linked with.
+  const people = useCouplePeople();
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.color.bgBase }}>
@@ -59,7 +62,7 @@ export default function Paired() {
             style={{ gap: space.md, alignItems: 'center' }}
           >
             <Text role="title1" center>
-              You and {partner.name} are linked
+              You and {partnerNameInSentence(people)} are linked
             </Text>
             <Text role="body" center color={theme.color.textSecondary}>
               That’s Level 1 — Crushes. Check in tomorrow and the streak starts counting.

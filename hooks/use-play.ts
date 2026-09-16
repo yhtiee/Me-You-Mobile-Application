@@ -6,6 +6,7 @@ import type { MovieDecadeFilter } from '@/constants/movies';
 import { PLAY_GAMES, gameOfTheDay, type PlayGame } from '@/constants/play';
 import type { PlayGameKey } from '@/constants/tokens';
 import { useAsyncData } from '@/hooks/use-async-data';
+import { useCouplePeople } from '@/hooks/use-couple-people';
 import { addCalendarEvent, fetchUpcomingEvents } from '@/lib/calendar';
 import {
   addGrowthHabit,
@@ -25,7 +26,6 @@ import {
   fetchOwnTriviaQuestions,
   fetchPickerQueue,
   fetchPlayActivity,
-  fetchPlayPeople,
   fetchPlayStats,
   fetchTriviaQuestions,
   fetchWheelOptions,
@@ -37,7 +37,6 @@ import {
   startTriviaRound,
   type OwnTriviaQuestion,
   type PlayActivity,
-  type PlayPeople,
 } from '@/lib/play';
 import type {
   CalendarEvent,
@@ -76,7 +75,6 @@ const WHEEL_TABLES = ['wheel_options'] as const;
 const DATE_TABLES = ['date_ideas'] as const;
 const GROWTH_TABLES = ['growth_habits'] as const;
 const EVENT_TABLES = ['calendar_events'] as const;
-const PEOPLE_TABLES = ['couple_members', 'profiles'] as const;
 
 const NO_QUESTIONS: TriviaQuestion[] = [];
 const NO_OPTIONS: WheelOption[] = [];
@@ -99,37 +97,10 @@ function sessionError() {
 /**
  * The two names, for any Play screen that has to address someone.
  *
- * Every game screen needs this and none of them need anything else about the
- * couple, which is why it is here rather than reached for through `useHome`.
- * Both partners' names change rarely, so the realtime subscription is really
- * only earning its keep for the moment a partner first joins.
+ * An alias now. The implementation moved to `useCouplePeople`, which every
+ * screen that names the partner shares — so a rename lands everywhere at once.
  */
-export function usePlayPeople() {
-  const { user, coupleId } = useAuth();
-  const userId = user?.id ?? null;
-
-  const load = useCallback(async () => {
-    if (!userId || !coupleId) throw sessionError();
-    return fetchPlayPeople(coupleId, userId);
-  }, [userId, coupleId]);
-
-  const { data, error, loading } = useAsyncData(
-    userId && coupleId ? load : null,
-    PEOPLE_TABLES
-  );
-
-  /*
-   * Falls back to a usable pair rather than null. Every caller renders a name
-   * into a sentence, and threading "the names have not loaded yet" through six
-   * screens buys nothing over one frame of "Your partner".
-   */
-  const people: PlayPeople = data ?? {
-    you: { id: userId ?? 'you', name: 'You' },
-    partner: null,
-  };
-
-  return { ...people, loading, error };
-}
+export const usePlayPeople = useCouplePeople;
 
 // ---------------------------------------------------------------------------
 // Hub

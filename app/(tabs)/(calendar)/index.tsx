@@ -172,7 +172,9 @@ export default function Calendar() {
         Tap an event to set a reminder. Both your phones get it.
       </Text>
 
-      <AdSlot />
+      {/* Loading is drawn inline here rather than returned early, so the slot
+          has to wait for it: no banner under a skeleton. */}
+      <AdSlot show={!loading} />
     </Screen>
   );
 }

@@ -35,53 +35,12 @@ function toMessage(error: { message: string }, what: string): Error {
 // ---------------------------------------------------------------------------
 
 /** Just the two names and ids. Deliberately not the home snapshot. */
-export type PlayPeople = {
-  you: { id: string; name: string };
-  /** Null while unpaired, or after the other half leaves. */
-  partner: { id: string; name: string } | null;
-};
-
-/**
- * The two people, for screens that only need to say a name.
- *
- * `fetchHomeSnapshot` already returns this and more, and reusing it was the
- * obvious move — but it also fires three queries including today's check-ins,
- * and the coin screen has no business loading a mood to print "Sarah goes
- * first". One query, two columns.
+/*
+ * The couple's names moved to `lib/people.ts`: they were never a Play concern,
+ * and five non-Play screens were reading a mock partner instead. The old names
+ * are kept as aliases so nothing that imports them from here has to change.
  */
-export async function fetchPlayPeople(coupleId: string, userId: string): Promise<PlayPeople> {
-  const { data, error } = await supabase
-    .from('couple_members')
-    .select('user_id, profiles(display_name)')
-    .eq('couple_id', coupleId)
-    .is('left_at', null);
-
-  if (error) throw toMessage(error, 'load your hub');
-
-  const rows = (data ?? []) as {
-    user_id: string;
-    // PostgREST types an embedded to-one relation as an array in some versions;
-    // `lib/home.ts` normalises the same way for the same reason.
-    profiles: { display_name: string | null } | { display_name: string | null }[] | null;
-  }[];
-
-  const nameOf = (row: (typeof rows)[number] | undefined, fallback: string) => {
-    if (!row) return fallback;
-    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-    return profile?.display_name?.trim() || fallback;
-  };
-
-  const mine = rows.find((row) => row.user_id === userId);
-  const theirs = rows.find((row) => row.user_id !== userId);
-
-  // The fallbacks differ on purpose. Your own missing name reads fine as "You" —
-  // it is what the copy would have said anyway. Theirs cannot be "They", which
-  // would put "They goes first" on the coin, so it falls back to "Your partner".
-  return {
-    you: { id: userId, name: nameOf(mine, 'You') },
-    partner: theirs ? { id: theirs.user_id, name: nameOf(theirs, 'Your partner') } : null,
-  };
-}
+export { fetchCouplePeople as fetchPlayPeople, type CouplePeople as PlayPeople } from '@/lib/people';
 
 // ---------------------------------------------------------------------------
 // Hub

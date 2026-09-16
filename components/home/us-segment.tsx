@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useRelationship, type LoveLanguageRow, type UsView } from '@/hooks/use-relationship';
 import { useTheme } from '@/components/providers/theme-provider';
+import { AdSlot } from '@/components/ui/ad-slot';
 import { icon, layout, palette, radius, space } from '@/constants/tokens';
 import type { UsGoal } from '@/lib/us';
 
@@ -134,6 +135,8 @@ function UsContent({
           )}
         </Card>
       </Pressable>
+
+      <AdSlot />
     </>
   );
 }

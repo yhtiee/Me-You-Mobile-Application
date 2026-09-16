@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { CheckIcon, ChevronIcon, CloseIcon, PlusIcon } from '@/components/ui/icons';
 import { ErrorState } from '@/components/ui/error-state';
 import { Screen } from '@/components/ui/screen';
+import { AdSlot } from '@/components/ui/ad-slot';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
@@ -167,6 +168,9 @@ export default function Todos() {
       ) : null}
 
       <BucketListCard />
+
+      {/* Well below the add field at the top, and only with a list to sit under. */}
+      <AdSlot show={total > 0} />
     </Screen>
   );
 }

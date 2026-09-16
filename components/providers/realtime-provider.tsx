@@ -82,7 +82,7 @@ const COUPLE_SCOPED = [
  * feature promises that never happens. Filtering on `user_id` keeps the socket
  * honest even though RLS would also refuse the read.
  */
-const USER_SCOPED = ['todos', 'growth_habits', 'picker_swipes'] as const;
+const USER_SCOPED = ['todos', 'growth_habits', 'picker_swipes', 'coach_usage'] as const;
 
 /**
  * Tables with no couple column. Subscribed unfiltered and scoped by RLS —

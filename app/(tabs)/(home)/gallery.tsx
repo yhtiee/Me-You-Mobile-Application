@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { CloseIcon, GalleryIcon, PlayIcon, PlusIcon } from '@/components/ui/icons';
 import { ErrorState } from '@/components/ui/error-state';
 import { Screen } from '@/components/ui/screen';
+import { AdSlot } from '@/components/ui/ad-slot';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
@@ -91,6 +92,9 @@ export default function Gallery() {
             <MonthSection key={month.key} month={month} onOpen={setOpen} />
           ))
         )}
+
+        {/* Not on the empty state, whose only content is an upload prompt. */}
+        <AdSlot show={items.length > 0} />
       </Screen>
 
       <Lightbox

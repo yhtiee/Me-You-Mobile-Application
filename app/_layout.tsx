@@ -17,6 +17,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import { AdsProvider } from '@/components/providers/ads-provider';
 import { AuthGate } from '@/components/providers/auth-gate';
 import { AuthProvider } from '@/components/providers/auth-provider';
 import { CoupleProvider } from '@/components/providers/couple-provider';
@@ -76,6 +77,8 @@ export default function RootLayout() {
    *   ToastProvider   } paint above whatever screen is mounted
    *   AuthProvider    — owns the session
    *   RealtimeProvider— needs the couple id, so it sits under AuthProvider
+   *   AdsProvider     — reads entitlement, which needs the couple id and the
+   *                     realtime subscription, so it sits under both
    *   AuthGate        — reads the session and redirects; inside the router
    */
   return (
@@ -86,7 +89,9 @@ export default function RootLayout() {
             <AuthProvider>
               <RealtimeProvider>
                 <CoupleProvider>
-                  <ThemedNavigation />
+                  <AdsProvider>
+                    <ThemedNavigation />
+                  </AdsProvider>
                 </CoupleProvider>
               </RealtimeProvider>
             </AuthProvider>

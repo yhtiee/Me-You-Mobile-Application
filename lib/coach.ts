@@ -226,6 +226,40 @@ export async function fetchQuota(): Promise<{
 }
 
 // ---------------------------------------------------------------------------
+// Rewarded questions
+// ---------------------------------------------------------------------------
+
+/**
+ * How many ad-rewarded questions are still available today.
+ *
+ * The limit dialog asks before it offers the ad. Offering a reward the server
+ * would then refuse means showing someone an ad and giving them nothing, which
+ * breaks the promise the button made and AdMob's rewarded-ad policy with it.
+ *
+ * Fails to zero, so an error hides the option rather than offering a reward
+ * that might not be honoured.
+ */
+export async function fetchRewardedRemaining(): Promise<number> {
+  const { data, error } = await supabase.rpc('coach_rewarded_remaining');
+  if (error) return 0;
+  return Number(data ?? 0);
+}
+
+/**
+ * Grant one question after an ad reported its reward.
+ *
+ * Returns the new daily allowance, or null when the server declined — the daily
+ * rewarded cap was already used, or the couple is premium. See the trust note
+ * on `grant_coach_bonus` in 0026: this is the client's word that an ad was
+ * watched, bounded by that cap, until server-side verification replaces it.
+ */
+export async function grantCoachBonus(): Promise<number | null> {
+  const { data, error } = await supabase.rpc('grant_coach_bonus');
+  if (error) throw toMessage(error, 'unlock that question');
+  return data === null || data === undefined ? null : Number(data);
+}
+
+// ---------------------------------------------------------------------------
 // Asking
 // ---------------------------------------------------------------------------
 

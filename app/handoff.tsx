@@ -7,7 +7,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 
 import { SheetBody } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
-import { useCouple } from '@/components/providers/couple-provider';
+import { partnerNameInSentence, useCouplePeople } from '@/hooks/use-couple-people';
 import { useNudges } from '@/hooks/use-nudges';
 import { useTheme } from '@/components/providers/theme-provider';
 import { NUDGE_CHANNELS, type NudgeChannel } from '@/constants/nudges';
@@ -34,7 +34,7 @@ import { layout, radius, space } from '@/constants/tokens';
  */
 export default function Handoff() {
   const theme = useTheme();
-  const { partner } = useCouple();
+  const people = useCouplePeople();
   const { isSent, toggle, count } = useNudges();
 
   const open = async (channel: NudgeChannel) => {
@@ -49,7 +49,7 @@ export default function Handoff() {
 
   return (
     <SheetBody
-      title={`Say something to ${partner.name}`}
+      title={`Say something to ${partnerNameInSentence(people)}`}
       subtitle={
         count > 0
           ? `You’ve marked ${count} today. Anything else is a bonus.`

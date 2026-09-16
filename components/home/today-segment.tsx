@@ -181,7 +181,9 @@ function TodayContent({
         />
       </Card>
 
-      <AdSlot show={!view.isPremium} />
+      {/* Entitlement is resolved once in `AdsProvider`; this renders only after
+          the day has loaded, so there is always content above it. */}
+      <AdSlot />
     </>
   );
 }

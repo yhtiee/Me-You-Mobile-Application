@@ -4,6 +4,7 @@ import { Alert, Pressable, View } from 'react-native';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Screen } from '@/components/ui/screen';
+import { AdSlot } from '@/components/ui/ad-slot';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useCoach } from '@/hooks/use-coach';
@@ -85,6 +86,8 @@ export default function CoachHistory() {
           ))}
         </Card>
       )}
+
+      <AdSlot show={!conversationsLoading && conversations.length > 0} />
     </Screen>
   );
 }

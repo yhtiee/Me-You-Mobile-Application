@@ -15,6 +15,9 @@ import {
 import { COACH_SUGGESTIONS } from '@/constants/coach';
 import type { CoachAttachment, CoachConversation, CoachMessage } from '@/types/domain';
 
+/** Per-user, filtered on `user_id` by the realtime provider. */
+const QUOTA_TABLES = ['coach_usage'] as const;
+
 /**
  * The AI relationship coach.
  *
@@ -69,7 +72,13 @@ export function useCoach() {
     return fetchQuota();
   }, [userId]);
 
-  const { data: quota, refetch: refetchQuota } = useAsyncData(userId ? loadQuota : null);
+  // Live, so a question granted by a rewarded ad unlocks the composer the moment
+  // it lands. The limit dialog is a transparent modal and never refocuses this
+  // screen, so a focus refetch alone would leave the count stuck at zero.
+  const { data: quota, refetch: refetchQuota } = useAsyncData(
+    userId ? loadQuota : null,
+    QUOTA_TABLES
+  );
 
   const conversations = conversationData ?? NO_CONVERSATIONS;
 

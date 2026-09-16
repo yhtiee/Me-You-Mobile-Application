@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StreakBadge } from '@/components/ui/streak-badge';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/components/providers/auth-provider';
-import { useCouple } from '@/components/providers/couple-provider';
+import { useCouplePeople } from '@/hooks/use-couple-people';
 import { usePremium } from '@/hooks/use-premium';
 import { useProfile } from '@/hooks/use-profile';
 import { useStreak } from '@/hooks/use-streak';
@@ -34,7 +34,7 @@ export default function You() {
     loading: progressLoading,
   } = useStreak();
   const { isPremium } = usePremium();
-  const { partner, coupleCode } = useCouple();
+  const { partner } = useCouplePeople();
 
   return (
     <Screen gap={space.md}>
@@ -127,8 +127,15 @@ export default function You() {
       </View>
 
       <Card padded={false} style={{ paddingHorizontal: space.lg }}>
-        <ListRow label="Paired with" value={partner.name} />
-        <ListRow label="Couple code" value={coupleCode} />
+        <ListRow label="Paired with" value={partner?.name ?? 'Your partner'} />
+        {/*
+          * No "Couple code" row. It read the mock provider, so it showed a code
+          * that matches no hub — and there is no real one to show instead. A code
+          * is single-use: `redeem_couple_code` sets `invite_code` to null the
+          * moment the partner joins, and this tab is only reachable once they
+          * have. Displaying it would invite someone to share a code that cannot
+          * work.
+          */}
         <ListRow label="Themes" value={isPremium ? 'Unlocked' : 'Premium'} onPress={() => router.push('/paywall')} />
         <ListRow label="Settings" onPress={() => router.push('/settings')} />
         <ListRow label="Log out" destructive onPress={signOut} last />

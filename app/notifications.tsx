@@ -5,9 +5,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { Glyph } from '@/components/ui/glyph';
 import { Screen } from '@/components/ui/screen';
+import { AdSlot } from '@/components/ui/ad-slot';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { useCouple } from '@/components/providers/couple-provider';
+import { partnerNameInSentence, useCouplePeople } from '@/hooks/use-couple-people';
 import { useTheme } from '@/components/providers/theme-provider';
 import { useNotifications } from '@/hooks/use-notifications';
 import { MOOD_LABELS, type MoodKey } from '@/types/domain';
@@ -27,7 +28,10 @@ import type { AppNotification } from '@/lib/notifications-feed';
  */
 export default function Notifications() {
   const theme = useTheme();
-  const { partner } = useCouple();
+  const people = useCouplePeople();
+  // Rows open a sentence with the name ("Your partner checked in"), so they
+  // take the capitalised fallback; the empty-state line is mid-sentence.
+  const rowName = people.partner?.name ?? 'Your partner';
   const { items, userId, loading, error, refetch } = useNotifications();
 
   if (loading) {
@@ -54,7 +58,7 @@ export default function Notifications() {
     return (
       <Screen gap={space.md}>
         <Text role="body" color={theme.color.textSecondary}>
-          Nudges, check-ins and anything {partner.name} does in Play will show up
+          Nudges, check-ins and anything {partnerNameInSentence(people)} does in Play will show up
           here.
         </Text>
         <EmptyState label="You’re all caught up." />
@@ -70,11 +74,13 @@ export default function Notifications() {
             key={item.id}
             item={item}
             userId={userId}
-            partnerName={partner.name}
+            partnerName={rowName}
             last={index === items.length - 1}
           />
         ))}
       </Card>
+
+      <AdSlot />
     </Screen>
   );
 }

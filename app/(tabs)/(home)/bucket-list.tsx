@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { CheckIcon } from '@/components/ui/icons';
 import { ErrorState } from '@/components/ui/error-state';
 import { Screen } from '@/components/ui/screen';
+import { AdSlot } from '@/components/ui/ad-slot';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
@@ -205,6 +206,9 @@ export default function BucketList() {
       <Text role="caption" center color={theme.color.textTertiary}>
         Only the two of you can see this list. No deadlines on any of it.
       </Text>
+
+      {/* An empty list is an empty screen; AdMob does not allow ads there. */}
+      <AdSlot show={todo.length + done.length > 0} />
     </Screen>
   );
 }

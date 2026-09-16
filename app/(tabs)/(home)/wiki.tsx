@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
 import { ListRow } from '@/components/ui/list-row';
 import { Screen } from '@/components/ui/screen';
+import { AdSlot } from '@/components/ui/ad-slot';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
@@ -161,6 +162,8 @@ export default function Wiki() {
       <Text role="caption" center color={theme.color.textTertiary}>
         Notes here are private to the two of you.
       </Text>
+
+      <AdSlot />
     </Screen>
   );
 }
