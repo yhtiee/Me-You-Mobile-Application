@@ -10,11 +10,11 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.meyou.app",
+      "bundleIdentifier": "tech.meandyou.app",
       "buildNumber": "1"
     },
     "android": {
-      "package": "com.meyou.app",
+      "package": "tech.meandyou.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FFE6EA",
