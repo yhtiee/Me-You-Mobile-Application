@@ -34,7 +34,6 @@ export type HomeSnapshot = {
   togetherSince: string | null;
   streak: number;
   level: number;
-  isPremium: boolean;
   you: HomePerson;
   /** Null while the other half of the couple has not joined (or has left). */
   partner: HomePerson | null;
@@ -79,7 +78,6 @@ type CoupleRow = {
   together_since: string | null;
   streak_count: number;
   level: number;
-  is_premium: boolean;
 };
 
 /**
@@ -128,7 +126,7 @@ export async function fetchHomeSnapshot(coupleId: string, userId: string): Promi
   const [coupleRes, membersRes, checkinsRes] = await Promise.all([
     supabase
       .from('couples')
-      .select('id, together_since, streak_count, level, is_premium')
+      .select('id, together_since, streak_count, level')
       .eq('id', coupleId)
       .maybeSingle(),
     supabase
@@ -181,7 +179,6 @@ export async function fetchHomeSnapshot(coupleId: string, userId: string): Promi
     togetherSince: couple.together_since,
     streak: couple.streak_count,
     level: couple.level,
-    isPremium: couple.is_premium,
     you,
     partner,
     yourCheckin: toCheckin(checkins.find((c) => c.user_id === userId)),

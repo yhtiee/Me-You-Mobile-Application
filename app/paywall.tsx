@@ -9,11 +9,16 @@ import { usePremium } from '@/hooks/use-premium';
 import { useTheme } from '@/components/providers/theme-provider';
 import { gradients, palette, radius, space } from '@/constants/tokens';
 
+/*
+ * What Premium actually does today.
+ *
+ * "Custom themes" and "Deep analytics" used to sit here and neither exists —
+ * a paywall that lists features the app does not have is a refund request at
+ * best and a store rejection at worst. Add them back when they ship.
+ */
 const PERKS = [
   { glyph: '🚫', title: 'No more ads', body: 'The banners go, everywhere.' },
-  { glyph: '💬', title: 'Unlimited coaching', body: 'Ask as often as you need to.' },
-  { glyph: '🎨', title: 'Custom themes', body: 'Make it look like the two of you.' },
-  { glyph: '📊', title: 'Deep analytics', body: 'See how your patterns actually move.' },
+  { glyph: '💬', title: 'Unlimited coaching', body: 'Ask the coach as often as you need to.' },
 ];
 
 /** $1.00/month. StoreKit 2 / Play Billing land with the API layer. */
@@ -45,6 +50,10 @@ export default function Paywall() {
         </View>
         <Text role="body" color="rgba(255,255,255,0.85)">
           Less than a coffee, once a month. Cancel whenever.
+        </Text>
+        {/* Priced per person, so nobody assumes one payment covers the pair. */}
+        <Text role="caption" color="rgba(255,255,255,0.75)">
+          Covers your account. Your partner can subscribe on their own.
         </Text>
       </View>
 

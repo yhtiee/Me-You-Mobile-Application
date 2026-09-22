@@ -55,7 +55,6 @@ export type HomeView = {
   bothCheckedIn: boolean;
   /** Null when the couple has never set a start date. */
   togetherLabel: string | null;
-  isPremium: boolean;
   /** Their battery and ask, for the "Right now" line. Null before they check in. */
   partnerCheckin: HomeCheckin | null;
   /** What they asked for, or null — only Sad and Stressed check-ins carry one. */
@@ -163,7 +162,6 @@ export function useHome() {
         // in" is exactly the condition that takes the streak out of danger.
         bothCheckedIn: data.yourCheckin !== null && data.partnerCheckin !== null,
         togetherLabel: data.togetherSince ? durationSince(data.togetherSince) : null,
-        isPremium: data.isPremium,
         partnerCheckin: data.partnerCheckin,
         partnerAsk: data.partnerCheckin?.need ? NEED_LABELS[data.partnerCheckin.need] : null,
         checkedOnThem: data.yourCheckin?.checkedOnPartner ?? false,

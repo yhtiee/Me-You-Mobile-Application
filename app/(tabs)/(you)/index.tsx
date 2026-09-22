@@ -136,7 +136,11 @@ export default function You() {
           * have. Displaying it would invite someone to share a code that cannot
           * work.
           */}
-        <ListRow label="Themes" value={isPremium ? 'Unlocked' : 'Premium'} onPress={() => router.push('/paywall')} />
+        {/*
+          * No "Themes" row either. It advertised a Premium feature that does
+          * not exist — the app follows the system's light or dark setting and
+          * has no theme picker. Put it back when there is something to unlock.
+          */}
         <ListRow label="Settings" onPress={() => router.push('/settings')} />
         <ListRow label="Log out" destructive onPress={signOut} last />
       </Card>

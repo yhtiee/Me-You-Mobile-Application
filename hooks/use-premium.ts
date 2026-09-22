@@ -6,10 +6,10 @@ import { useAsyncData } from '@/hooks/use-async-data';
 import { fetchIsPremium } from '@/lib/entitlement';
 
 /**
- * `couples` carries `is_premium` and `premium_until`, so a purchase or a lapse
- * written on either partner's device has to reach this one.
+ * `profiles` carries `is_premium` and `premium_until`, so a purchase or a lapse
+ * written by the billing webhook reaches this device without a restart.
  */
-const PREMIUM_TABLES = ['couples'] as const;
+const PREMIUM_TABLES = ['profiles'] as const;
 
 /**
  * Entitlement state.
@@ -23,16 +23,16 @@ const PREMIUM_TABLES = ['couples'] as const;
  * `upgrade` is still the mock, because there is no billing yet (StoreKit 2 and
  * Play Billing are not integrated). Deliberately, calling it no longer changes
  * `isPremium`: a pretend purchase must not hide real ads. When billing lands,
- * the purchase writes `couples.is_premium` server-side and this hook picks it up
- * through the realtime subscription with no change here.
+ * the purchase writes `profiles.is_premium` server-side and this hook picks it
+ * up through the realtime subscription with no change here.
  */
 export function usePremium() {
-  const { coupleId } = useAuth();
+  const { user } = useAuth();
   const { upgrade } = useCouple();
 
   const load = useCallback(async () => fetchIsPremium(), []);
 
-  const { data, loading } = useAsyncData(coupleId ? load : null, PREMIUM_TABLES);
+  const { data, loading } = useAsyncData(user ? load : null, PREMIUM_TABLES);
 
   /*
    * Unknown is not the same as premium. While the first read is in flight

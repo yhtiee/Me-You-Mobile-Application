@@ -34,7 +34,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Me&u uses your photos so you can set a profile picture."
+          "photosPermission": "Me&u uses your photos so you can set a profile picture.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ],
       [

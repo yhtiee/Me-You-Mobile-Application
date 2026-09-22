@@ -70,8 +70,8 @@ export default function UnpairDialog() {
       </Text>
       {isPremium ? (
         <Text role="caption" color={theme.tint.amber.fg}>
-          Premium belongs to this hub. If you pay for it, cancel it in your app store, as unpairing
-          doesn’t stop the subscription.
+          Your Premium subscription is yours and carries over to a new hub. Cancel it in your app store if you
+          no longer want it.
         </Text>
       ) : null}
       {error ? (
