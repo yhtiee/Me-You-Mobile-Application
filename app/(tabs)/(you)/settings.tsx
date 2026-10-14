@@ -136,6 +136,27 @@ export default function Settings() {
         </Card>
       </View>
 
+      {/* Always shown, and never a web link: Google Play's Child Safety
+          Standards policy requires feedback and reporting to work in-app. */}
+      <View style={{ gap: space.sm }}>
+        <Text role="overline" color={theme.color.textTertiary}>
+          Help
+        </Text>
+        <Card padded={false} style={{ paddingHorizontal: space.lg }}>
+          <ListRow
+            label="Send feedback"
+            sublabel="Ideas, problems, anything"
+            onPress={() => router.push('/feedback')}
+          />
+          <ListRow
+            label="Report a safety concern"
+            sublabel="Abuse, harassment or harm to a minor"
+            onPress={() => router.push({ pathname: '/feedback', params: { kind: 'safety' } })}
+            last
+          />
+        </Card>
+      </View>
+
       <View style={{ gap: space.sm }}>
         <Text role="overline" color={theme.color.textTertiary}>
           Privacy

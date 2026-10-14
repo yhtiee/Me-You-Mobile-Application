@@ -8,6 +8,7 @@ export default function YouStack() {
       <Stack.Screen name="index" options={{ title: 'You' }} />
       <Stack.Screen name="profile" options={{ title: 'Your profile' }} />
       <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      <Stack.Screen name="feedback" options={{ title: 'Feedback & safety' }} />
     </Stack>
   );
 }
