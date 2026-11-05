@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 
 import { deleteAccountOnServer, leaveHubOnServer, type AccountActionResult } from '@/lib/account';
 import { clearAll as clearLocalReminders } from '@/lib/notifications';
+import { confirmPasswordReset, type ResetField } from '@/lib/password-reset';
 import { registerForPush, unregisterForPush } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
 
@@ -34,6 +35,19 @@ type AuthApi = {
     lastName: string;
   }) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
+  /**
+   * Redeems a reset code, sets the new password, signs in with it, and signs
+   * every *other* device out. Resolves `{ ok: false, field }` with the field
+   * the server objected to.
+   */
+  resetPassword: (input: {
+    email: string;
+    code: string;
+    password: string;
+  }) => Promise<
+    | { ok: true }
+    | { ok: false; message: string; field?: ResetField; passwordChanged?: boolean }
+  >;
   signOut: () => Promise<void>;
   /**
    * Permanently deletes the account and its data, then clears this device.
@@ -230,6 +244,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) return toAuthResult(error.message);
 
+      /*
+       * The welcome email. Fire-and-forget: the server sends it at most once
+       * per account, and an account that misses it is not worse off for it.
+       * Only with a session, because the function mails the session's own
+       * address and nothing else.
+       */
+      if (data.session) {
+        void supabase.functions.invoke('welcome-email', { method: 'POST' }).catch(() => {});
+      }
+
       /**
        * Confirmation is off in this project, so a session comes back and the
        * flag is false. It stays here as the signal for the other case: with
@@ -248,6 +272,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return error ? toAuthResult(error.message) : { ok: true };
   }, []);
+
+  const resetPassword = useCallback(
+    async (input: { email: string; code: string; password: string }) => {
+      const result = await confirmPasswordReset(input);
+      if (!result.ok) return result;
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: input.email.trim(),
+        password: input.password,
+      });
+      if (error) {
+        // The password did change; only the sign-in after it failed. Say so,
+        // so the person logs in rather than resetting a second time.
+        return {
+          ok: false as const,
+          message: 'Your password was changed. Log in with the new one.',
+          passwordChanged: true,
+        };
+      }
+
+      /*
+       * Whoever had the old password may still be signed in somewhere. A reset
+       * is the moment to end that, and `others` leaves this session alone.
+       * Best effort: a failure here shouldn't undo a successful reset.
+       */
+      await supabase.auth.signOut({ scope: 'others' }).catch(() => {});
+      return { ok: true as const };
+    },
+    []
+  );
 
   const signOut = useCallback(async () => {
     /*
@@ -324,12 +378,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       coupleId,
       signUp,
       signIn,
+      resetPassword,
       signOut,
       deleteAccount,
       unpair,
       refreshPairing,
     }),
-    [status, session, pairing, coupleId, signUp, signIn, signOut, deleteAccount, unpair, refreshPairing]
+    [
+      status,
+      session,
+      pairing,
+      coupleId,
+      signUp,
+      signIn,
+      resetPassword,
+      signOut,
+      deleteAccount,
+      unpair,
+      refreshPairing,
+    ]
   );
 
   return <AuthContext value={api}>{children}</AuthContext>;

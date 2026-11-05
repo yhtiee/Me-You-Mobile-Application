@@ -121,6 +121,18 @@ export default function Login() {
           returnKeyType="go"
           onSubmitEditing={form.submit}
         />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() =>
+            router.push({ pathname: '/forgot-password', params: { email: form.values.email.trim() } })
+          }
+          hitSlop={8}
+          style={{ alignSelf: 'flex-end', marginTop: -space.sm }}
+        >
+          <Text role="caption" color={palette.brand.rose}>
+            Forgot password?
+          </Text>
+        </Pressable>
         <Button
           label={form.submitting ? 'Logging in…' : 'Log in'}
           full

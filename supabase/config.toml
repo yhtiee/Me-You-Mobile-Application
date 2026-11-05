@@ -42,3 +42,18 @@ verify_jwt = true
 [functions.leave-hub]
 # Required. The hub ended is the caller's own, read from this session.
 verify_jwt = true
+
+[functions.password-reset]
+# Off, deliberately: it is called by someone who has forgotten their password
+# and so has no session. Everything that makes that safe (no account
+# enumeration, hashed single-use codes, attempt and send limits) is inside the
+# function.
+verify_jwt = false
+
+[functions.welcome-email]
+# The address mailed is the session's own, so it needs a real session.
+verify_jwt = true
+
+[functions.submit-feedback]
+# The report is filed as the session's user.
+verify_jwt = true

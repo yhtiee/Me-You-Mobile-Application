@@ -3,8 +3,20 @@ import { useEffect, type ReactNode } from 'react';
 
 import { useAuth } from '@/components/providers/auth-provider';
 
-/** Onboarding screens a signed-in user has already finished with. */
-const PRE_AUTH_SCREENS = new Set(['index', 'auth', 'login', 'walkthrough']);
+/**
+ * Onboarding screens a signed-in user has already finished with.
+ *
+ * The two reset screens are here so a signed-out user may open them, and so a
+ * successful reset (which signs in) is moved on into the app.
+ */
+const PRE_AUTH_SCREENS = new Set([
+  'index',
+  'auth',
+  'login',
+  'walkthrough',
+  'forgot-password',
+  'reset-password',
+]);
 
 /** The celebration a newly linked couple sees before the app. */
 const PAIRED_SCREEN = 'paired';

@@ -28,6 +28,8 @@ export default function OnboardingStack() {
       <Stack.Screen name="auth" />
       {/* Headered, unlike `auth`, because it is only ever reached by a push. */}
       <Stack.Screen name="login" options={{ headerShown: true, title: 'Log in' }} />
+      <Stack.Screen name="forgot-password" options={{ headerShown: true, title: 'Reset password' }} />
+      <Stack.Screen name="reset-password" options={{ headerShown: true, title: 'Reset password' }} />
       <Stack.Screen name="pair" />
       <Stack.Screen name="create-hub" options={{ headerShown: true, title: 'Your couple code' }} />
       <Stack.Screen name="join-partner" options={{ headerShown: true, title: 'Join your partner' }} />

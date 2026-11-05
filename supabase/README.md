@@ -39,6 +39,33 @@ npx supabase functions deploy coach
 npx supabase functions deploy movies
 ```
 
+### Email (Resend)
+
+Every email the app sends goes through `functions/_shared/email.ts`: the
+Resend client, one shared layout (banner from
+`https://www.meandyou.tech/images/email-banner.png`, rendered by the website's
+`npm run assets`), and all the templates.
+
+| Function | Emails |
+|----------|--------|
+| `password-reset` | 6-digit reset code; "password changed" after it's used. Replaces Supabase's recovery email. Called signed out (`verify_jwt = false`) |
+| `welcome-email` | Welcome, once per account (`email_sends`), called by the app after sign-up |
+| `submit-feedback` | Every feedback/safety report to `SUPPORT_INBOX`; an acknowledgement to the reporter for safety reports |
+| `leave-hub` | "Your hub has ended" to both people |
+| `delete-account` | "Your account has been deleted" |
+
+Secrets: `RESEND_API_KEY` (required). Optional: `EMAIL_FROM` (default
+`Me&u <hello@meandyou.tech>`), `SUPPORT_INBOX` (default
+`philipelias16@gmail.com`, also the child safety contact on the website),
+`RESET_CODE_SECRET` (HMAC key for stored codes; defaults to the service role
+key). `0031_email.sql` must be applied first.
+
+```bash
+npx supabase db push --remote
+npx supabase secrets set RESEND_API_KEY=re_your_key
+npx supabase functions deploy password-reset welcome-email submit-feedback leave-hub delete-account --use-api
+```
+
 It needs `GEMINI_API_KEY` in the project's secrets; `SUPABASE_URL`,
 `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
 

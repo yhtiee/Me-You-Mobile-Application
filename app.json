@@ -3,7 +3,7 @@
     "name": "Me&u",
     "slug": "meyou",
     "owner": "me-and-you-mobile-application",
-    "version": "2.1.0",
+    "version": "3.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "meyou",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "tech.meandyou.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundImage": "./assets/images/android-icon-background.png",
         "backgroundColor": "#A24B90",

@@ -24,9 +24,15 @@
  *
  * Order matters: files first, because once the rows are gone nothing records
  * which objects belonged to whom.
+ *
+ * Then a confirmation email. The address and name are read before anything is
+ * deleted (afterwards there is nothing to read them from) and the email is
+ * sent only once the account is really gone.
  */
 
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+
+import { accountDeletedEmail, sendEmail } from '../_shared/email.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -109,9 +115,13 @@ Deno.serve(async (req) => {
   const { data: auth } = await caller.auth.getUser();
   const uid = auth?.user?.id;
   if (!uid) return json({ error: 'Your session ended. Log in again, then try once more.' }, 401);
+  const accountEmail = auth.user?.email ?? null;
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
   log('info', 'delete.start', { uid });
+
+  const { data: profile } = await admin.from('profiles').select('first_name').eq('id', uid).maybeSingle();
+  const firstName = (profile?.first_name as string | null) ?? null;
 
   try {
     // Every hub this user was ever in, and who else is still active there.
@@ -161,6 +171,15 @@ Deno.serve(async (req) => {
       coachFiles,
       galleryFiles,
     });
+
+    if (accountEmail) {
+      await sendEmail({
+        to: accountEmail,
+        email: accountDeletedEmail({ name: firstName }),
+        idempotencyKey: `account-deleted-${uid}`,
+        tag: 'account_deleted',
+      });
+    }
     return json({ ok: true });
   } catch (thrown) {
     // Safe to retry: every step above is idempotent, and nothing is removed

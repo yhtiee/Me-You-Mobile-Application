@@ -19,12 +19,17 @@
  *   2. Delete the gallery files.
  *   3. Delete the hub; every shared table cascades from it.
  *   4. Push the partner, for the case where their app is closed.
+ *   5. Email both people. Shared data was just deleted, and the person who
+ *      didn't tap Unpair deserves a record of that beyond a push they may
+ *      have swiped away.
  *
  * Idempotent: a caller with no hub gets `{ ok: true }`, so a retry after a
  * dropped response is harmless.
  */
 
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+
+import { hubEndedEmail, sendEmail } from '../_shared/email.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -104,6 +109,58 @@ async function broadcastEnded(coupleId: string): Promise<void> {
     if (!res.ok) log('warn', 'broadcast.failed', { status: res.status });
   } catch (thrown) {
     log('warn', 'broadcast.failed', { message: String(thrown) });
+  }
+}
+
+/**
+ * Best effort, like the push. One email each: a receipt for the person who
+ * ended it, a notice for everyone else.
+ */
+async function emailEnded(
+  admin: SupabaseClient,
+  coupleId: string,
+  leaver: { id: string; email: string | null; name: string },
+  partnerIds: string[]
+): Promise<void> {
+  try {
+    const { data: profiles } = await admin
+      .from('profiles')
+      .select('id, first_name, display_name')
+      .in('id', [leaver.id, ...partnerIds]);
+    const nameOf = (id: string) => {
+      const p = profiles?.find((row) => row.id === id);
+      const raw = ((p?.first_name as string | null) ?? (p?.display_name as string | null))?.trim();
+      return raw && raw !== 'You' ? raw : null;
+    };
+
+    const partners = await Promise.all(
+      partnerIds.map(async (id) => {
+        const { data } = await admin.auth.admin.getUserById(id);
+        return { id, email: data?.user?.email ?? null, name: nameOf(id) };
+      })
+    );
+
+    const firstPartnerName = partners.find((p) => p.name)?.name ?? 'your partner';
+
+    if (leaver.email) {
+      await sendEmail({
+        to: leaver.email,
+        email: hubEndedEmail({ name: nameOf(leaver.id), endedByYou: true, otherName: firstPartnerName }),
+        idempotencyKey: `hub-ended-${coupleId}-${leaver.id}`,
+        tag: 'hub_ended',
+      });
+    }
+    for (const partner of partners) {
+      if (!partner.email) continue;
+      await sendEmail({
+        to: partner.email,
+        email: hubEndedEmail({ name: partner.name, endedByYou: false, otherName: leaver.name }),
+        idempotencyKey: `hub-ended-${coupleId}-${partner.id}`,
+        tag: 'hub_ended',
+      });
+    }
+  } catch (thrown) {
+    log('warn', 'email.failed', { message: String(thrown) });
   }
 }
 
@@ -193,6 +250,7 @@ Deno.serve(async (req) => {
     if (deleteError) throw new Error(`delete hub: ${deleteError.message}`);
 
     await pushEnded(admin, partnerIds, leaverName);
+    await emailEnded(admin, coupleId, { id: uid, email: auth.user?.email ?? null, name: leaverName }, partnerIds);
 
     log('info', 'leave.done', { uid, coupleId, galleryFiles });
     return json({ ok: true });
